@@ -1,0 +1,72 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- Created with Cambalache 0.94.1 -->
+<interface>
+  <!-- interface-name gctoolsui.ui -->
+  <requires lib="gio" version="2.0"/>
+  <requires lib="gtk" version="4.12"/>
+  <object class="GtkApplicationWindow" id="mainWin">
+    <property name="default-height">425</property>
+    <property name="default-width">625</property>
+    <property name="show-menubar">True</property>
+    <property name="title">gctools</property>
+    <child>
+      <object class="GtkCenterBox">
+        <property name="center-widget">
+          <object class="GtkNotebook" id="openedPages">
+            <property name="vexpand">True</property>
+            <property name="vexpand-set">True</property>
+          </object>
+        </property>
+        <property name="end-widget">
+          <object class="GtkStatusbar" id="gctoolsStatusBar">
+            <property name="can-focus">False</property>
+            <property name="can-target">False</property>
+            <property name="vexpand">True</property>
+            <property name="vexpand-set">True</property>
+          </object>
+        </property>
+        <property name="orientation">vertical</property>
+        <property name="start-widget">
+          <object class="GtkPopoverMenuBar" id="gctoolsMenuBar">
+            <property name="menu-model">gctoolsMenuModel</property>
+            <property name="name">gctoolsMenu</property>
+            <property name="overflow">hidden</property>
+            <property name="vexpand">True</property>
+            <property name="vexpand-set">True</property>
+          </object>
+        </property>
+      </object>
+    </child>
+    <child>
+      <menu id="gctoolsMenuModel">
+        <submenu>
+          <attribute name="label">File</attribute>
+          <section>
+            <item>
+              <attribute name="action">menuactions.new</attribute>
+              <attribute name="label">New</attribute>
+            </item>
+            <item>
+              <attribute name="action">menuactions.open</attribute>
+              <attribute name="label">Open</attribute>
+            </item>
+            <item>
+              <attribute name="action">menuactions.save</attribute>
+              <attribute name="label">Save</attribute>
+            </item>
+            <item>
+              <attribute name="action">menuactions.saveas</attribute>
+              <attribute name="label">Save As</attribute>
+            </item>
+          </section>
+          <section>
+            <item>
+              <attribute name="action">menuactions.quit</attribute>
+              <attribute name="label">Quit</attribute>
+            </item>
+          </section>
+        </submenu>
+      </menu>
+    </child>
+  </object>
+</interface>
