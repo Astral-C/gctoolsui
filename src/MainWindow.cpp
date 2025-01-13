@@ -176,7 +176,7 @@ OpenedItem::OpenedItem(Gtk::ColumnView* view, std::shared_ptr<Disk::Image> img){
     
     AddDirectoryNodeDisk(mDiskItems, mDisk->GetRoot(), "");
 
-    auto root = CreateArchiveTreeModel();
+    auto root = CreateDiskTreeModel();
     mTreeListModel = Gtk::TreeListModel::create(root, sigc::mem_fun(*this, &OpenedItem::CreateDiskTreeModel), false, true);
     mSelection = Gtk::SingleSelection::create(mTreeListModel);
 
@@ -232,27 +232,51 @@ void MainWindow::OpenArchive(Glib::RefPtr<Gio::AsyncResult>& result){
     }
 
     //check extension to see if we should be opening an iso?
-
+    std::string extension = std::filesystem::path(file->get_path()).extension();
     bStream::CFileStream stream(file->get_path(), bStream::Endianess::Big, bStream::OpenMode::In);
-    std::shared_ptr arc = Archive::Rarc::Create();
-    if(!arc->Load(&stream)){
-        // show fail dialog
-        mStatus->push(std::format("Failed to open archive {} ", file->get_path()));
-    } else {
-        mStatus->push(std::format("Opened archive {} ", file->get_path()));
+    
+    if(extension == ".arc" || extension == ".rarc" || extension == ".szp" || extension == ".szs"){
+        std::shared_ptr arc = Archive::Rarc::Create();
+        if(!arc->Load(&stream)){
+            // show fail dialog
+            mStatus->push(std::format("Failed to open archive {} ", file->get_path()));
+        } else {
+            mStatus->push(std::format("Opened archive {} ", file->get_path()));
 
-        Gtk::ScrolledWindow* scroller = Gtk::make_managed<Gtk::ScrolledWindow>();
-        scroller->set_has_frame(false);
-        scroller->set_policy(Gtk::PolicyType::AUTOMATIC, Gtk::PolicyType::AUTOMATIC);
-        scroller->set_expand();    
-        
-        Gtk::ColumnView* columnView = Gtk::make_managed<Gtk::ColumnView>();
-        columnView->set_expand();
-        
-        mOpenedItems.push_back(OpenedItem(columnView, arc));
-        scroller->set_child(*columnView);
+            Gtk::ScrolledWindow* scroller = Gtk::make_managed<Gtk::ScrolledWindow>();
+            scroller->set_has_frame(false);
+            scroller->set_policy(Gtk::PolicyType::AUTOMATIC, Gtk::PolicyType::AUTOMATIC);
+            scroller->set_expand();    
+            
+            Gtk::ColumnView* columnView = Gtk::make_managed<Gtk::ColumnView>();
+            columnView->set_expand();
+            
+            mOpenedItems.push_back(OpenedItem(columnView, arc));
+            scroller->set_child(*columnView);
 
-        mNotebook->append_page(*scroller, file->get_basename());
+            mNotebook->append_page(*scroller, file->get_basename());
+        }
+    } else if(extension == ".iso" || extension == ".gcm") {
+        std::shared_ptr img = Disk::Image::Create();
+        if(!img->Load(&stream)){
+            // show fail dialog
+            mStatus->push(std::format("Failed to open image {} ", file->get_path()));
+        } else {
+            mStatus->push(std::format("Opened image {} ", file->get_path()));
+
+            Gtk::ScrolledWindow* scroller = Gtk::make_managed<Gtk::ScrolledWindow>();
+            scroller->set_has_frame(false);
+            scroller->set_policy(Gtk::PolicyType::AUTOMATIC, Gtk::PolicyType::AUTOMATIC);
+            scroller->set_expand();    
+            
+            Gtk::ColumnView* columnView = Gtk::make_managed<Gtk::ColumnView>();
+            columnView->set_expand();
+            
+            mOpenedItems.push_back(OpenedItem(columnView, img));
+            scroller->set_child(*columnView);
+
+            mNotebook->append_page(*scroller, file->get_basename());
+        }
     }
 
 }
