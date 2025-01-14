@@ -288,8 +288,10 @@ void OpenedItem::Save(){
 
 void MainWindow::TreeClicked(int n_press, double x, double y){
     const Gdk::Rectangle rect(x, y, 1, 1);
-    mContextMenu.set_pointing_to(rect);
-    mContextMenu.popup();
+    if(mContextMenu.get_parent() != nullptr){
+        mContextMenu.set_pointing_to(rect);
+        mContextMenu.popup();
+    }
 }
 
 void MainWindow::OnNew(){
