@@ -33,6 +33,7 @@ public:
 
 class OpenedItem {
 public:
+    int mIconSize { 64 };
     Gtk::ColumnView* mView { nullptr };
     std::shared_ptr<Disk::Image> mDisk { nullptr };
     std::shared_ptr<Archive::Rarc> mArchive { nullptr };
@@ -44,13 +45,19 @@ public:
     std::vector<CellItemFilesystemNode> mDiskItems;
     std::vector<CellItemFilesystemNode> mArchiveItems;
 
+    std::filesystem::path mOpenedPath;
+    Compression::Format mCompressionFmt;
+
     void AddDirectoryNodeArchive(std::vector<CellItemFilesystemNode>& items, std::shared_ptr<Archive::Folder> directory, std::filesystem::path curPath);
     void AddDirectoryNodeDisk(std::vector<CellItemFilesystemNode>& items, std::shared_ptr<Disk::Folder> directory, std::filesystem::path curPath);
 
     void OnCreateItem(const Glib::RefPtr<Gtk::ListItem>& list_item);
+    void OnCreateNoExpander(const Glib::RefPtr<Gtk::ListItem>& list_item);
     void OnCreateIconItem(const Glib::RefPtr<Gtk::ListItem>& list_item);
     void OnBindName(const Glib::RefPtr<Gtk::ListItem>& list_item);
     void OnBindSize(const Glib::RefPtr<Gtk::ListItem>& list_item);
+
+    void Save();
 
     Glib::RefPtr<Gio::ListModel> CreateArchiveTreeModel(const Glib::RefPtr<Glib::ObjectBase>& item = {});
     Glib::RefPtr<Gio::ListModel> CreateDiskTreeModel(const Glib::RefPtr<Glib::ObjectBase>& item = {});
@@ -66,6 +73,10 @@ public:
     std::filesystem::path mEntryPath;
     
     bool mIsFolder;
+
+    std::shared_ptr<Disk::Folder> mDiskFolderEntry;
+    std::shared_ptr<Disk::File> mDiskFileEntry;
+
     std::shared_ptr<Archive::Folder> mFolderEntry;
     std::shared_ptr<Archive::File> mFileEntry;
 
@@ -76,7 +87,19 @@ public:
     }
     
 protected:
-    ModelColumns(const CellItemFilesystemNode& item) : mEntryName(item.mEntryName), mEntrySize(item.mEntrySize), mEntryPath(item.mEntryPath), mIsFolder(item.mIsFolder), mFolderEntry(item.mFolderEntry), mFileEntry(item.mFileEntry), mChildren(item.mChildren){}
+    ModelColumns(const CellItemFilesystemNode& item) : mEntryName(item.mEntryName), mEntrySize(item.mEntrySize), mEntryPath(item.mEntryPath), mIsFolder(item.mIsFolder), mFolderEntry(item.mFolderEntry), mFileEntry(item.mFileEntry), mDiskFolderEntry(item.mDiskFolderEntry), mDiskFileEntry(item.mDiskFileEntry), mChildren(item.mChildren){}
+};
+
+class SettingsDialog : public Gtk::Dialog {
+public:
+    void on_message_finish(const Glib::RefPtr<Gio::AsyncResult>& result, const Glib::RefPtr<SettingsDialog>& dialog);
+    SettingsDialog(BaseObjectType* cobject, const Glib::RefPtr<Gtk::Builder>& builder);
+    ~SettingsDialog() override;
+
+    Glib::RefPtr<Gtk::Builder> Builder() { return mBuilder; }
+
+protected:
+    Glib::RefPtr<Gtk::Builder> mBuilder;
 };
 
 class MainWindow : public Gtk::ApplicationWindow {
@@ -90,6 +113,7 @@ protected:
     void OnSave();
     void OnSaveAs();
     void OnQuit();
+    void OnOpenSettings();
     void OpenArchive(Glib::RefPtr<Gio::AsyncResult>& result);
 
     void PageRemoved(Widget* child, guint idx) { mOpenedItems.erase(mOpenedItems.begin() + idx); }
@@ -99,11 +123,13 @@ protected:
     Gtk::Statusbar* mStatus;
     Gtk::Notebook* mNotebook;
 
+    SettingsDialog* mSettingsDialog;
     Glib::RefPtr<Gtk::RecentManager> mRecentManager;
     Glib::RefPtr<Gtk::FileDialog> mFileDialog;
     Glib::RefPtr<Gtk::Builder> mBuilder;
 };
 
+SettingsDialog* BuildSettingsDialog();
 Gtk::ApplicationWindow* BuildWindow();
 
 #endif

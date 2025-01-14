@@ -1,0 +1,40 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- Created with Cambalache 0.94.1 -->
+<interface>
+  <requires lib="gtk" version="4.12"/>
+  <object class="GtkDialog" id="settingsDialog">
+    <property name="default-height">70</property>
+    <property name="default-width">350</property>
+    <property name="modal">True</property>
+    <property name="title">Settings</property>
+    <child>
+      <object class="GtkBox">
+        <property name="hexpand">True</property>
+        <property name="hexpand-set">True</property>
+        <property name="margin-bottom">5</property>
+        <property name="margin-end">10</property>
+        <property name="margin-start">10</property>
+        <property name="margin-top">5</property>
+        <property name="orientation">vertical</property>
+        <property name="vexpand">True</property>
+        <property name="vexpand-set">True</property>
+        <child>
+          <object class="GtkBox">
+            <property name="margin-bottom">5</property>
+            <property name="margin-top">5</property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkBox">
+            <child>
+              <object class="GtkButton" id="applyButton">
+                <property name="hexpand">True</property>
+                <property name="label">Apply</property>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+  </object>
+</interface>

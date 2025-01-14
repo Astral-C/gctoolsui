@@ -66,6 +66,13 @@
             </item>
           </section>
         </submenu>
+        <submenu>
+          <attribute name="label">Edit</attribute>
+          <item>
+            <attribute name="action">menuactions.settings</attribute>
+            <attribute name="label">Settings</attribute>
+          </item>
+        </submenu>
       </menu>
     </child>
   </object>

@@ -1,6 +1,7 @@
 #include "MainWindow.hpp"
 #include <iostream>
 #include "bytesize.hpp"
+#include <Bti.hpp>
 
 CellItemFilesystemNode::CellItemFilesystemNode(Glib::ustring entryName, Glib::ustring entrySize, std::filesystem::path entryPath, bool isFolder, std::shared_ptr<Archive::Folder> folderEntry, std::shared_ptr<Archive::File> fileEntry, std::shared_ptr<Disk::Folder> diskFolderEntry, std::shared_ptr<Disk::File> diskFileEntry){
     mEntryName = entryName;
@@ -96,11 +97,24 @@ void OpenedItem::OnCreateItem(const Glib::RefPtr<Gtk::ListItem>& list_item){
     list_item->set_child(*expander);
 }
 
-void OpenedItem::OnCreateIconItem(const Glib::RefPtr<Gtk::ListItem>& list_item){
-    auto expander = Gtk::make_managed<Gtk::TreeExpander>();
+void OpenedItem::OnCreateNoExpander(const Glib::RefPtr<Gtk::ListItem>& list_item){
+    // Each ListItem contains a TreeExpander, which contains a Label.
     auto label = Gtk::make_managed<Gtk::Label>();
     label->set_halign(Gtk::Align::START);
-    expander->set_child(*label);
+    list_item->set_child(*label);
+}
+
+void OpenedItem::OnCreateIconItem(const Glib::RefPtr<Gtk::ListItem>& list_item){
+    auto expander = Gtk::make_managed<Gtk::TreeExpander>();
+    auto box = Gtk::make_managed<Gtk::Box>();
+    auto image = Gtk::make_managed<Gtk::Image>();
+    auto label = Gtk::make_managed<Gtk::Label>();
+    image->set_halign(Gtk::Align::START);
+    image->set_margin_end(10);
+    label->set_halign(Gtk::Align::START);
+    box->prepend(*label);
+    box->prepend(*image);
+    expander->set_child(*box);
     list_item->set_child(*expander);
 }
 
@@ -113,10 +127,69 @@ void OpenedItem::OnBindName(const Glib::RefPtr<Gtk::ListItem>& list_item){
     
     auto expander = dynamic_cast<Gtk::TreeExpander*>(list_item->get_child());
     if (!expander) return;
-    
+
     expander->set_list_row(row);
     
-    auto label = dynamic_cast<Gtk::Label*>(expander->get_child());
+    auto box = dynamic_cast<Gtk::Box*>(expander->get_child());
+    if(!box) return;
+
+    auto image = dynamic_cast<Gtk::Image*>(box->get_first_child());
+    if(!image) return;
+
+    if(col->mIsFolder){
+        image->set_from_icon_name("folder");
+    } else {
+        if(mArchive){
+            if(col->mEntryPath.extension() == ".bti"){
+                Bti img;
+                bStream::CMemoryStream stream(col->mFileEntry->GetData(), col->mFileEntry->GetSize(), bStream::Endianess::Big, bStream::OpenMode::In);
+                
+                if(img.Load(&stream)){
+                    auto pixbuf = Gdk::Pixbuf::create_from_data(img.GetData(), Gdk::Colorspace::RGB, true, 8, img.mWidth, img.mHeight, img.mWidth*4);
+                    float ratio = std::min(static_cast<float>(32) / static_cast<float>(img.mWidth), static_cast<float>(32) / static_cast<float>(img.mHeight));
+                    image->set_pixel_size(32);
+                    image->set(pixbuf->scale_simple(static_cast<int>(img.mWidth * ratio), static_cast<int>(img.mHeight * ratio), Gdk::InterpType::NEAREST));
+                }
+
+            } else if(col->mEntryPath.extension() == ".tpl"){
+                Tpl img;
+                bStream::CMemoryStream stream(col->mFileEntry->GetData(), col->mFileEntry->GetSize(), bStream::Endianess::Big, bStream::OpenMode::In);
+                
+                if(img.Load(&stream)){
+                    auto pixbuf = Gdk::Pixbuf::create_from_data(img.GetImage(0)->GetData(), Gdk::Colorspace::RGB, true, 8, img.GetImage(0)->mWidth, img.GetImage(0)->mHeight, img.GetImage(0)->mWidth*4);
+                    float ratio = std::min(static_cast<float>(32) / static_cast<float>(img.GetImage(0)->mWidth), static_cast<float>(32) / static_cast<float>(img.GetImage(0)->mHeight));
+                    image->set_pixel_size(32);
+                    image->set(pixbuf->scale_simple(static_cast<int>(img.GetImage(0)->mWidth * ratio), static_cast<int>(img.GetImage(0)->mHeight * ratio), Gdk::InterpType::NEAREST));
+                }
+            }
+        } else if(mDisk){
+            if(col->mEntryPath.extension() == ".bti"){
+                Bti img;
+                bStream::CMemoryStream stream(col->mDiskFileEntry->GetData(), col->mDiskFileEntry->GetSize(), bStream::Endianess::Big, bStream::OpenMode::In);
+                
+                if(img.Load(&stream)){
+                    auto pixbuf = Gdk::Pixbuf::create_from_data(img.GetData(), Gdk::Colorspace::RGB, true, 8, img.mWidth, img.mHeight, img.mWidth*4);
+                    float ratio = std::min(static_cast<float>(32) / static_cast<float>(img.mWidth), static_cast<float>(32) / static_cast<float>(img.mHeight));
+                    image->set_pixel_size(32);
+                    image->set(pixbuf->scale_simple(static_cast<int>(img.mWidth * ratio), static_cast<int>(img.mHeight * ratio), Gdk::InterpType::NEAREST));
+                }
+
+            } else if(col->mEntryPath.extension() == ".tpl"){
+                Tpl img;
+                bStream::CMemoryStream stream(col->mDiskFileEntry->GetData(), col->mDiskFileEntry->GetSize(), bStream::Endianess::Big, bStream::OpenMode::In);
+                
+                if(img.Load(&stream)){
+                    auto pixbuf = Gdk::Pixbuf::create_from_data(img.GetImage(0)->GetData(), Gdk::Colorspace::RGB, true, 8, img.GetImage(0)->mWidth, img.GetImage(0)->mHeight, img.GetImage(0)->mWidth*4);
+                    float ratio = std::min(static_cast<float>(32) / static_cast<float>(img.GetImage(0)->mWidth), static_cast<float>(32) / static_cast<float>(img.GetImage(0)->mHeight));
+                    image->set_pixel_size(32);
+                    image->set(pixbuf->scale_simple(static_cast<int>(img.GetImage(0)->mWidth * ratio), static_cast<int>(img.GetImage(0)->mHeight * ratio), Gdk::InterpType::NEAREST));
+                }
+            }
+        }
+    }
+
+    
+    auto label = dynamic_cast<Gtk::Label*>(box->get_last_child());
     if (!label) return;
     label->set_text(col->mEntryName);
 }
@@ -128,12 +201,7 @@ void OpenedItem::OnBindSize(const Glib::RefPtr<Gtk::ListItem>& list_item){
     auto col = std::dynamic_pointer_cast<ModelColumns>(row->get_item());
     if (!col) return;
     
-    auto expander = dynamic_cast<Gtk::TreeExpander*>(list_item->get_child());
-    if (!expander) return;
-    
-    expander->set_list_row(row);
-    
-    auto label = dynamic_cast<Gtk::Label*>(expander->get_child());
+    auto label = dynamic_cast<Gtk::Label*>(list_item->get_child());
     if (!label) return;
     label->set_text(col->mEntrySize);
 }
@@ -142,7 +210,8 @@ void OpenedItem::OnBindSize(const Glib::RefPtr<Gtk::ListItem>& list_item){
 OpenedItem::OpenedItem(Gtk::ColumnView* view, std::shared_ptr<Archive::Rarc> arc){
     mView = view;
     mArchive = arc;
-    
+    mDisk = nullptr;
+
     AddDirectoryNodeArchive(mArchiveItems, mArchive->GetRoot(), "");
 
     auto root = CreateArchiveTreeModel();
@@ -150,7 +219,7 @@ OpenedItem::OpenedItem(Gtk::ColumnView* view, std::shared_ptr<Archive::Rarc> arc
     mSelection = Gtk::SingleSelection::create(mTreeListModel);
 
     auto nameItemFactory = Gtk::SignalListItemFactory::create();
-    nameItemFactory->signal_setup().connect(sigc::mem_fun(*this, &OpenedItem::OnCreateItem));
+    nameItemFactory->signal_setup().connect(sigc::mem_fun(*this, &OpenedItem::OnCreateIconItem));
     nameItemFactory->signal_bind().connect(sigc::mem_fun(*this, &OpenedItem::OnBindName));
 
     auto column = Gtk::ColumnViewColumn::create("Name", nameItemFactory);
@@ -158,7 +227,7 @@ OpenedItem::OpenedItem(Gtk::ColumnView* view, std::shared_ptr<Archive::Rarc> arc
     mView->append_column(column);
 
     auto sizeItemFactory = Gtk::SignalListItemFactory::create();
-    sizeItemFactory->signal_setup().connect(sigc::mem_fun(*this, &OpenedItem::OnCreateItem));
+    sizeItemFactory->signal_setup().connect(sigc::mem_fun(*this, &OpenedItem::OnCreateNoExpander));
     sizeItemFactory->signal_bind().connect(sigc::mem_fun(*this, &OpenedItem::OnBindSize));
 
     column = Gtk::ColumnViewColumn::create("Size", sizeItemFactory);
@@ -173,7 +242,8 @@ OpenedItem::OpenedItem(Gtk::ColumnView* view, std::shared_ptr<Archive::Rarc> arc
 OpenedItem::OpenedItem(Gtk::ColumnView* view, std::shared_ptr<Disk::Image> img){
     mView = view;
     mDisk = img;
-    
+    mArchive = nullptr;
+
     AddDirectoryNodeDisk(mDiskItems, mDisk->GetRoot(), "");
 
     auto root = CreateDiskTreeModel();
@@ -181,7 +251,7 @@ OpenedItem::OpenedItem(Gtk::ColumnView* view, std::shared_ptr<Disk::Image> img){
     mSelection = Gtk::SingleSelection::create(mTreeListModel);
 
     auto nameItemFactory = Gtk::SignalListItemFactory::create();
-    nameItemFactory->signal_setup().connect(sigc::mem_fun(*this, &OpenedItem::OnCreateItem));
+    nameItemFactory->signal_setup().connect(sigc::mem_fun(*this, &OpenedItem::OnCreateIconItem));
     nameItemFactory->signal_bind().connect(sigc::mem_fun(*this, &OpenedItem::OnBindName));
 
     auto column = Gtk::ColumnViewColumn::create("Name", nameItemFactory);
@@ -189,16 +259,25 @@ OpenedItem::OpenedItem(Gtk::ColumnView* view, std::shared_ptr<Disk::Image> img){
     mView->append_column(column);
 
     auto sizeItemFactory = Gtk::SignalListItemFactory::create();
-    sizeItemFactory->signal_setup().connect(sigc::mem_fun(*this, &OpenedItem::OnCreateItem));
+    sizeItemFactory->signal_setup().connect(sigc::mem_fun(*this, &OpenedItem::OnCreateNoExpander));
     sizeItemFactory->signal_bind().connect(sigc::mem_fun(*this, &OpenedItem::OnBindSize));
 
     column = Gtk::ColumnViewColumn::create("Size", sizeItemFactory);
     column->set_fixed_width(128);
     mView->append_column(column);
 
+    mView->set_reorderable(false);
     mView->set_show_column_separators(true);
 
     mView->set_model(mSelection);
+}
+
+void OpenedItem::Save(){
+    if(mArchive){
+        mArchive->SaveToFile(mOpenedPath, mCompressionFmt, 7, true);
+    } else if(mDisk){
+        mDisk->SaveToFile(mOpenedPath);
+    }
 }
 
 
@@ -252,6 +331,17 @@ void MainWindow::OpenArchive(Glib::RefPtr<Gio::AsyncResult>& result){
             columnView->set_expand();
             
             mOpenedItems.push_back(OpenedItem(columnView, arc));
+            mOpenedItems.back().mOpenedPath = std::filesystem::path(file->get_path());
+
+            uint32_t magic = stream.peekUInt32(0);
+            if(magic == 1499560496){
+                mOpenedItems.back().mCompressionFmt = Compression::Format::YAZ0;
+            } else if(magic == 1499560240){
+                mOpenedItems.back().mCompressionFmt = Compression::Format::YAY0;
+            } else {
+                mOpenedItems.back().mCompressionFmt = Compression::Format::None;
+            }
+
             scroller->set_child(*columnView);
 
             mNotebook->append_page(*scroller, file->get_basename());
@@ -273,6 +363,7 @@ void MainWindow::OpenArchive(Glib::RefPtr<Gio::AsyncResult>& result){
             columnView->set_expand();
             
             mOpenedItems.push_back(OpenedItem(columnView, img));
+            mOpenedItems.back().mOpenedPath = std::filesystem::path(file->get_path());
             scroller->set_child(*columnView);
 
             mNotebook->append_page(*scroller, file->get_basename());
@@ -292,11 +383,20 @@ void MainWindow::OnOpen(){
 }
 
 void MainWindow::OnSave(){
-    //mArchive->S
+    if(mOpenedItems.size() > 0){
+        int page = mNotebook->get_current_page();
+        mOpenedItems[page].Save();
+    }
 }
 
 void MainWindow::OnSaveAs(){
 
+}
+
+void MainWindow::OnOpenSettings(){
+    mSettingsDialog->set_transient_for(*this);
+    set_modal(mSettingsDialog);
+    mSettingsDialog->set_visible(true);
 }
 
 void MainWindow::OnQuit(){
@@ -312,15 +412,53 @@ MainWindow::MainWindow(BaseObjectType* cobject, const Glib::RefPtr<Gtk::Builder>
     menuActions->add_action("saveas", sigc::mem_fun(*this, &MainWindow::OnSaveAs));
     menuActions->add_action("quit", sigc::mem_fun(*this, &MainWindow::OnQuit));
 
+    menuActions->add_action("settings", sigc::mem_fun(*this, &MainWindow::OnOpenSettings));
+
     insert_action_group("menuactions", menuActions);
 
     mStatus = builder->get_widget<Gtk::Statusbar>("gctoolsStatusBar");
     mNotebook = builder->get_widget<Gtk::Notebook>("openedPages");
     mNotebook->signal_page_removed().connect(sigc::mem_fun(*this, &MainWindow::PageRemoved));
+    
+    mSettingsDialog = BuildSettingsDialog();
+    
+    mSettingsDialog->Builder()->get_widget<Gtk::Button>("applyButton")->signal_clicked().connect([&](){
+        mSettingsDialog->set_visible(false);
+    });
+
 }
 
 MainWindow::~MainWindow(){
+    delete mSettingsDialog;
+}
 
+void SettingsDialog::on_message_finish(const Glib::RefPtr<Gio::AsyncResult>& result, const Glib::RefPtr<SettingsDialog>& dialog){
+
+}
+
+SettingsDialog::SettingsDialog(BaseObjectType* cobject, const Glib::RefPtr<Gtk::Builder>& builder) : Gtk::Dialog(cobject), mBuilder(builder){
+}
+
+SettingsDialog::~SettingsDialog(){
+
+}
+
+SettingsDialog* BuildSettingsDialog(){
+    auto builder = Gtk::Builder::create();
+    try {
+        builder->add_from_file("settings.ui");
+    } catch (const Glib::Error& error) {
+        std::cout << "Error loading settings.ui: " << error.what() << std::endl;
+        return nullptr;
+    }
+
+    auto window = Gtk::Builder::get_widget_derived<SettingsDialog>(builder, "settingsDialog");
+    if (!window){
+        std::cout << "Could not get 'window' from the builder." << std::endl;
+        return nullptr;
+    }
+    
+    return window;
 }
 
 Gtk::ApplicationWindow* BuildWindow(){
