@@ -34,6 +34,7 @@ public:
 class OpenedItem {
 public:
     int mIconSize { 64 };
+    bool mIsArchive { true };
     Gtk::ColumnView* mView { nullptr };
     std::shared_ptr<Disk::Image> mDisk { nullptr };
     std::shared_ptr<Archive::Rarc> mArchive { nullptr };
@@ -116,14 +117,19 @@ protected:
     void OnOpenSettings();
     void OpenArchive(Glib::RefPtr<Gio::AsyncResult>& result);
 
+    void TreeClicked(int n_press, double x, double y);
+
     void PageRemoved(Widget* child, guint idx) { mOpenedItems.erase(mOpenedItems.begin() + idx); }
+    void PageChanged(Widget* child, guint idx) { if(child != nullptr) mContextMenu.set_parent(*child); }
 
     std::vector<OpenedItem> mOpenedItems;
 
     Gtk::Statusbar* mStatus;
     Gtk::Notebook* mNotebook;
+    Gtk::PopoverMenu mContextMenu;
 
     SettingsDialog* mSettingsDialog;
+    Glib::RefPtr<Gtk::GestureClick> mTreeClicked;
     Glib::RefPtr<Gtk::RecentManager> mRecentManager;
     Glib::RefPtr<Gtk::FileDialog> mFileDialog;
     Glib::RefPtr<Gtk::Builder> mBuilder;

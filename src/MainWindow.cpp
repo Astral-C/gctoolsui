@@ -3,6 +3,8 @@
 #include "bytesize.hpp"
 #include <Bti.hpp>
 
+Glib::RefPtr<Gtk::PopoverMenu> ctxMenu { nullptr };
+
 CellItemFilesystemNode::CellItemFilesystemNode(Glib::ustring entryName, Glib::ustring entrySize, std::filesystem::path entryPath, bool isFolder, std::shared_ptr<Archive::Folder> folderEntry, std::shared_ptr<Archive::File> fileEntry, std::shared_ptr<Disk::Folder> diskFolderEntry, std::shared_ptr<Disk::File> diskFileEntry){
     mEntryName = entryName;
     mEntryPath = entryPath;
@@ -139,7 +141,7 @@ void OpenedItem::OnBindName(const Glib::RefPtr<Gtk::ListItem>& list_item){
     if(col->mIsFolder){
         image->set_from_icon_name("folder");
     } else {
-        if(mArchive){
+        if(mIsArchive){
             if(col->mEntryPath.extension() == ".bti"){
                 Bti img;
                 bStream::CMemoryStream stream(col->mFileEntry->GetData(), col->mFileEntry->GetSize(), bStream::Endianess::Big, bStream::OpenMode::In);
@@ -162,7 +164,7 @@ void OpenedItem::OnBindName(const Glib::RefPtr<Gtk::ListItem>& list_item){
                     image->set(pixbuf->scale_simple(static_cast<int>(img.GetImage(0)->mWidth * ratio), static_cast<int>(img.GetImage(0)->mHeight * ratio), Gdk::InterpType::NEAREST));
                 }
             }
-        } else if(mDisk){
+        } else {
             if(col->mEntryPath.extension() == ".bti"){
                 Bti img;
                 bStream::CMemoryStream stream(col->mDiskFileEntry->GetData(), col->mDiskFileEntry->GetSize(), bStream::Endianess::Big, bStream::OpenMode::In);
@@ -212,6 +214,8 @@ OpenedItem::OpenedItem(Gtk::ColumnView* view, std::shared_ptr<Archive::Rarc> arc
     mArchive = arc;
     mDisk = nullptr;
 
+    mIsArchive = true;
+
     AddDirectoryNodeArchive(mArchiveItems, mArchive->GetRoot(), "");
 
     auto root = CreateArchiveTreeModel();
@@ -243,6 +247,8 @@ OpenedItem::OpenedItem(Gtk::ColumnView* view, std::shared_ptr<Disk::Image> img){
     mView = view;
     mDisk = img;
     mArchive = nullptr;
+
+    mIsArchive = false;
 
     AddDirectoryNodeDisk(mDiskItems, mDisk->GetRoot(), "");
 
@@ -280,6 +286,11 @@ void OpenedItem::Save(){
     }
 }
 
+void MainWindow::TreeClicked(int n_press, double x, double y){
+    const Gdk::Rectangle rect(x, y, 1, 1);
+    mContextMenu.set_pointing_to(rect);
+    mContextMenu.popup();
+}
 
 void MainWindow::OnNew(){
     std::shared_ptr<Archive::Rarc> arc = Archive::Rarc::Create();
@@ -329,7 +340,7 @@ void MainWindow::OpenArchive(Glib::RefPtr<Gio::AsyncResult>& result){
             
             Gtk::ColumnView* columnView = Gtk::make_managed<Gtk::ColumnView>();
             columnView->set_expand();
-            
+
             mOpenedItems.push_back(OpenedItem(columnView, arc));
             mOpenedItems.back().mOpenedPath = std::filesystem::path(file->get_path());
 
@@ -416,16 +427,34 @@ MainWindow::MainWindow(BaseObjectType* cobject, const Glib::RefPtr<Gtk::Builder>
 
     insert_action_group("menuactions", menuActions);
 
+    auto contextMenuAction = Gio::SimpleActionGroup::create();
+    
+    contextMenuAction->add_action("import", sigc::mem_fun(*this, &MainWindow::OnQuit));
+    contextMenuAction->add_action("extract", sigc::mem_fun(*this, &MainWindow::OnQuit));
+    contextMenuAction->add_action("delete", sigc::mem_fun(*this, &MainWindow::OnQuit));
+    contextMenuAction->add_action("newfolder", sigc::mem_fun(*this, &MainWindow::OnQuit));
+
+    insert_action_group("fs", contextMenuAction);
+
     mStatus = builder->get_widget<Gtk::Statusbar>("gctoolsStatusBar");
     mNotebook = builder->get_widget<Gtk::Notebook>("openedPages");
+    mNotebook->signal_switch_page().connect(sigc::mem_fun(*this, &MainWindow::PageChanged));
     mNotebook->signal_page_removed().connect(sigc::mem_fun(*this, &MainWindow::PageRemoved));
-    
+    //            mContextMenu.set_parent(columnView);
+
+    auto ctxModel = builder->get_object<Gio::Menu>("contextMenuModel");
+    mContextMenu.set_menu_model(ctxModel);
+
+    mTreeClicked = Gtk::GestureClick::create();
+    mTreeClicked->set_button(GDK_BUTTON_SECONDARY);
+    mTreeClicked->signal_pressed().connect(sigc::mem_fun(*this, &MainWindow::TreeClicked));
+    add_controller(mTreeClicked);
+
     mSettingsDialog = BuildSettingsDialog();
     
     mSettingsDialog->Builder()->get_widget<Gtk::Button>("applyButton")->signal_clicked().connect([&](){
         mSettingsDialog->set_visible(false);
     });
-
 }
 
 MainWindow::~MainWindow(){

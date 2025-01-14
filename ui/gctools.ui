@@ -3,7 +3,7 @@
 <interface>
   <!-- interface-name gctoolsui.ui -->
   <requires lib="gio" version="2.0"/>
-  <requires lib="gtk" version="4.12"/>
+  <requires lib="gtk" version="4.14"/>
   <object class="GtkApplicationWindow" id="mainWin">
     <property name="default-height">425</property>
     <property name="default-width">625</property>
@@ -75,5 +75,34 @@
         </submenu>
       </menu>
     </child>
+    <child>
+      <menu id="ctxMenuModel">
+        <section>
+          <attribute name="label">File</attribute>
+          <item>
+            <attribute name="action">fs.import</attribute>
+            <attribute name="label">Import</attribute>
+          </item>
+          <item>
+            <attribute name="action">fs.extract</attribute>
+            <attribute name="label">Extract</attribute>
+          </item>
+          <item>
+            <attribute name="action">fs.delete</attribute>
+            <attribute name="label">Delete</attribute>
+          </item>
+        </section>
+        <section>
+          <attribute name="label">Folder</attribute>
+          <item>
+            <attribute name="action">fs.newfolder</attribute>
+            <attribute name="label">New</attribute>
+          </item>
+        </section>
+      </menu>
+    </child>
+  </object>
+  <object class="GtkPopoverMenu" id="contextMenu">
+    <property name="menu-model">ctxMenuModel</property>
   </object>
 </interface>
