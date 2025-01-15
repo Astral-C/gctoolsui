@@ -135,19 +135,15 @@ protected:
     void OnDelete();
     void OnExtract();
     void OnNewFolder();
-    void OnCloseItem(){ /* TODO: close notebook page hovered */ }
+    void ActivatedItem(guint pos);
 
     void TreeClicked(int n_press, double x, double y);
-    void NotebookRightClicked(int n_press, double x, double y);
     Gtk::Statusbar* mStatus;
     Gtk::Notebook* mNotebook;
     Gtk::PopoverMenu mContextMenu;
-
     Glib::RefPtr<Gio::Menu> mTreeContextMenuModel;
-    Glib::RefPtr<Gio::Menu> mNotebookContextMenuModel;
 
     SettingsDialog* mSettingsDialog;
-    Glib::RefPtr<Gtk::GestureClick> mTreeClicked, mNotebookClicked;
     Glib::RefPtr<Gtk::RecentManager> mRecentManager;
     Glib::RefPtr<Gtk::FileDialog> mFileDialog;
     Glib::RefPtr<Gtk::Builder> mBuilder;

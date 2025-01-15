@@ -3,8 +3,6 @@
 #include "bytesize.hpp"
 #include <Bti.hpp>
 
-Glib::RefPtr<Gtk::PopoverMenu> ctxMenu { nullptr };
-
 CellItemFilesystemNode::CellItemFilesystemNode(Glib::ustring entryName, Glib::ustring entrySize, std::filesystem::path entryPath, bool isFolder, std::shared_ptr<Archive::Folder> folderEntry, std::shared_ptr<Archive::File> fileEntry, std::shared_ptr<Disk::Folder> diskFolderEntry, std::shared_ptr<Disk::File> diskFileEntry){
     mEntryName = entryName;
     mEntryPath = entryPath;
@@ -280,6 +278,7 @@ OpenedItem::OpenedItem(Gtk::ColumnView* view, std::shared_ptr<Disk::Image> img){
     set_child(*mView);
 }
 
+
 void OpenedItem::Save(){
     if(mArchive){
         mArchive->SaveToFile(mOpenedPath, mCompressionFmt, 7, true);
@@ -309,18 +308,18 @@ void ItemTab::CloseItem(int n_press, double x, double y){
     mNotebook->remove_page(*mPageItem);
 }
 
-
-void MainWindow::TreeClicked(int n_press, double x, double y){
-    // add rename?
-    mContextMenu.set_menu_model(mTreeContextMenuModel);
-    mContextMenu.set_pointing_to(Gdk::Rectangle {(int)x, (int)y, 0, 0});
-    mContextMenu.popup();
-}
-
-void MainWindow::NotebookRightClicked(int n_press, double x, double y){
-    mContextMenu.set_menu_model(mNotebookContextMenuModel);
-    mContextMenu.set_pointing_to(Gdk::Rectangle {(int)x, (int)y, 0, 0});
-    mContextMenu.popup();
+void MainWindow::ActivatedItem(guint pos){
+    if(mNotebook->get_nth_page(mNotebook->get_current_page()) != nullptr){
+        Glib::RefPtr<Gdk::Display> display = Gdk::Display::get_default();
+        Glib::RefPtr<Gdk::Seat> seat = display->get_default_seat();
+        Glib::RefPtr<Gdk::Device> pointer = seat->get_pointer();
+    
+        double x, y;
+        pointer->get_surface_at_position(x, y);
+    
+        mContextMenu.set_pointing_to(Gdk::Rectangle {(int)x, (int)y, 0, 0});
+        mContextMenu.popup();
+    }
 }
 
 void MainWindow::OnNew(){
@@ -330,6 +329,7 @@ void MainWindow::OnNew(){
     arc->SetRoot(root);
 
     Gtk::ColumnView* columnView = Gtk::make_managed<Gtk::ColumnView>();
+    columnView->signal_activate().connect(sigc::mem_fun(*this, &MainWindow::ActivatedItem));
     columnView->set_expand();
     
     OpenedItem* scroller = Gtk::make_managed<OpenedItem>(columnView, arc);
@@ -339,6 +339,7 @@ void MainWindow::OnNew(){
 
     auto tab = Gtk::make_managed<ItemTab>("archive", mNotebook, scroller);
     mNotebook->append_page(*scroller, *tab);
+    mNotebook->set_tab_reorderable(*scroller);
 }
 
 void MainWindow::OpenArchive(Glib::RefPtr<Gio::AsyncResult>& result){
@@ -363,13 +364,13 @@ void MainWindow::OpenArchive(Glib::RefPtr<Gio::AsyncResult>& result){
             mStatus->push(std::format("Opened archive {} ", file->get_path()));
 
             Gtk::ColumnView* columnView = Gtk::make_managed<Gtk::ColumnView>();
+            columnView->signal_activate().connect(sigc::mem_fun(*this, &MainWindow::ActivatedItem));
             columnView->set_expand();
 
             OpenedItem* scroller = Gtk::make_managed<OpenedItem>(columnView, arc);
             scroller->set_has_frame(false);
             scroller->set_policy(Gtk::PolicyType::AUTOMATIC, Gtk::PolicyType::AUTOMATIC);
             scroller->set_expand();    
-            scroller->add_controller(mTreeClicked);
             
             uint32_t magic = stream.peekUInt32(0);
             if(magic == 1499560496){
@@ -382,6 +383,7 @@ void MainWindow::OpenArchive(Glib::RefPtr<Gio::AsyncResult>& result){
 
             auto tab = Gtk::make_managed<ItemTab>(file->get_basename(), mNotebook, scroller);
             mNotebook->append_page(*scroller, *tab);
+            mNotebook->set_tab_reorderable(*scroller);
         }
     } else if(extension == ".iso" || extension == ".gcm") {
         std::shared_ptr img = Disk::Image::Create();
@@ -392,16 +394,17 @@ void MainWindow::OpenArchive(Glib::RefPtr<Gio::AsyncResult>& result){
             mStatus->push(std::format("Opened image {} ", file->get_path()));
 
             Gtk::ColumnView* columnView = Gtk::make_managed<Gtk::ColumnView>();
+            columnView->signal_activate().connect(sigc::mem_fun(*this, &MainWindow::ActivatedItem));
             columnView->set_expand();
 
             OpenedItem* scroller = Gtk::make_managed<OpenedItem>(columnView, img);
             scroller->set_has_frame(false);
             scroller->set_policy(Gtk::PolicyType::AUTOMATIC, Gtk::PolicyType::AUTOMATIC);
-            scroller->set_expand();                
-            scroller->add_controller(mTreeClicked);
+            scroller->set_expand();
 
             auto tab = Gtk::make_managed<ItemTab>(file->get_basename(), mNotebook, scroller);
             mNotebook->append_page(*scroller, *tab);
+            mNotebook->set_tab_reorderable(*scroller);
         }
     }
 
@@ -472,7 +475,6 @@ MainWindow::MainWindow(BaseObjectType* cobject, const Glib::RefPtr<Gtk::Builder>
     contextMenuAction->add_action("extract", sigc::mem_fun(*this, &MainWindow::OnExtract));
     contextMenuAction->add_action("delete", sigc::mem_fun(*this, &MainWindow::OnDelete));
     contextMenuAction->add_action("newfolder", sigc::mem_fun(*this, &MainWindow::OnNewFolder));
-    contextMenuAction->add_action("close", sigc::mem_fun(*this, &MainWindow::OnCloseItem));
 
     insert_action_group("fs", contextMenuAction);
 
@@ -480,20 +482,11 @@ MainWindow::MainWindow(BaseObjectType* cobject, const Glib::RefPtr<Gtk::Builder>
     mNotebook = builder->get_widget<Gtk::Notebook>("openedPages");
 
     mTreeContextMenuModel = builder->get_object<Gio::Menu>("ctxMenuModel");
-    mNotebookContextMenuModel = builder->get_object<Gio::Menu>("ctxNotebookMenuModel");
-
-
+    mContextMenu.set_parent(*this);
+    mContextMenu.set_menu_model(mTreeContextMenuModel);
     mContextMenu.set_flags(Gtk::PopoverMenu::Flags::NESTED);
     mContextMenu.set_has_arrow(false);
 
-    mTreeClicked = Gtk::GestureClick::create();
-    mTreeClicked->set_button(GDK_BUTTON_SECONDARY);
-    mTreeClicked->signal_pressed().connect(sigc::mem_fun(*this, &MainWindow::TreeClicked));
-
-    mNotebookClicked = Gtk::GestureClick::create();
-    mNotebookClicked->set_button(GDK_BUTTON_SECONDARY);
-    mNotebookClicked->signal_pressed().connect(sigc::mem_fun(*this, &MainWindow::NotebookRightClicked));
-    mNotebook->add_controller(mNotebookClicked);
     
     mSettingsDialog = BuildSettingsDialog();
     

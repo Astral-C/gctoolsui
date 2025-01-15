@@ -101,13 +101,5 @@
         </section>
       </menu>
     </child>
-    <child>
-      <menu id="ctxNotebookMenuModel">
-        <item>
-          <attribute name="action">fs.close</attribute>
-          <attribute name="label">Close</attribute>
-        </item>
-      </menu>
-    </child>
   </object>
 </interface>
