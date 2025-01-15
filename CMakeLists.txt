@@ -19,6 +19,7 @@ file(GLOB_RECURSE GCTOOLSUI_SRC
 )
 
 configure_file(ui/gctools.ui ${CMAKE_CURRENT_BINARY_DIR}/gctools.ui COPYONLY)
+configure_file(ui/settings.ui ${CMAKE_CURRENT_BINARY_DIR}/settings.ui COPYONLY)
 add_executable(gctoolsui ${GCTOOLSUI_SRC})
 target_include_directories(gctoolsui PUBLIC include lib/gctoolsplusplus/lib/bStream lib/gctoolsplusplus/include ${GTKMM_INCLUDE_DIRS})
 
