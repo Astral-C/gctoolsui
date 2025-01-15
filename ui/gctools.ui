@@ -3,7 +3,7 @@
 <interface>
   <!-- interface-name gctoolsui.ui -->
   <requires lib="gio" version="2.0"/>
-  <requires lib="gtk" version="4.14"/>
+  <requires lib="gtk" version="4.12"/>
   <object class="GtkApplicationWindow" id="mainWin">
     <property name="default-height">425</property>
     <property name="default-width">625</property>
@@ -101,8 +101,13 @@
         </section>
       </menu>
     </child>
-  </object>
-  <object class="GtkPopoverMenu" id="contextMenu">
-    <property name="menu-model">ctxMenuModel</property>
+    <child>
+      <menu id="ctxNotebookMenuModel">
+        <item>
+          <attribute name="action">fs.close</attribute>
+          <attribute name="label">Close</attribute>
+        </item>
+      </menu>
+    </child>
   </object>
 </interface>

@@ -241,6 +241,7 @@ OpenedItem::OpenedItem(Gtk::ColumnView* view, std::shared_ptr<Archive::Rarc> arc
     mView->set_show_column_separators(true);
 
     mView->set_model(mSelection);
+    set_child(*mView);
 }
 
 OpenedItem::OpenedItem(Gtk::ColumnView* view, std::shared_ptr<Disk::Image> img){
@@ -276,6 +277,7 @@ OpenedItem::OpenedItem(Gtk::ColumnView* view, std::shared_ptr<Disk::Image> img){
     mView->set_show_column_separators(true);
 
     mView->set_model(mSelection);
+    set_child(*mView);
 }
 
 void OpenedItem::Save(){
@@ -285,6 +287,28 @@ void OpenedItem::Save(){
         mDisk->SaveToFile(mOpenedPath);
     }
 }
+
+ItemTab::ItemTab(std::string label, Gtk::Notebook* notebook, OpenedItem* item) {
+    mLabel.set_text(label);
+    mIconClose.set_from_icon_name("window-close-symbolic");
+    mIconClose.set_margin_start(5);
+
+    mCloseTabClicked = Gtk::GestureClick::create();
+    mCloseTabClicked->set_button(GDK_BUTTON_PRIMARY);
+    mCloseTabClicked->signal_pressed().connect(sigc::mem_fun(*this, &ItemTab::CloseItem));
+    mIconClose.add_controller(mCloseTabClicked);
+
+    mPageItem = item;
+    mNotebook = notebook;
+
+    prepend(mIconClose);
+    prepend(mLabel);
+}
+
+void ItemTab::CloseItem(int n_press, double x, double y){
+    mNotebook->remove_page(*mPageItem);
+}
+
 
 void MainWindow::TreeClicked(int n_press, double x, double y){
     // add rename?
@@ -305,18 +329,16 @@ void MainWindow::OnNew(){
     root->SetName("archive");
     arc->SetRoot(root);
 
-    Gtk::ScrolledWindow* scroller = Gtk::make_managed<Gtk::ScrolledWindow>();
-    scroller->set_has_frame(false);
-    scroller->set_policy(Gtk::PolicyType::AUTOMATIC, Gtk::PolicyType::AUTOMATIC);
-    scroller->set_expand();    
-    
     Gtk::ColumnView* columnView = Gtk::make_managed<Gtk::ColumnView>();
     columnView->set_expand();
     
-    mOpenedItems.push_back(OpenedItem(columnView, arc));
-    scroller->set_child(*columnView);
+    OpenedItem* scroller = Gtk::make_managed<OpenedItem>(columnView, arc);
+    scroller->set_has_frame(false);
+    scroller->set_policy(Gtk::PolicyType::AUTOMATIC, Gtk::PolicyType::AUTOMATIC);
+    scroller->set_expand();
 
-    mNotebook->append_page(*scroller, "archive");
+    auto tab = Gtk::make_managed<ItemTab>("archive", mNotebook, scroller);
+    mNotebook->append_page(*scroller, *tab);
 }
 
 void MainWindow::OpenArchive(Glib::RefPtr<Gio::AsyncResult>& result){
@@ -340,30 +362,26 @@ void MainWindow::OpenArchive(Glib::RefPtr<Gio::AsyncResult>& result){
         } else {
             mStatus->push(std::format("Opened archive {} ", file->get_path()));
 
-            Gtk::ScrolledWindow* scroller = Gtk::make_managed<Gtk::ScrolledWindow>();
-            scroller->set_has_frame(false);
-            scroller->set_policy(Gtk::PolicyType::AUTOMATIC, Gtk::PolicyType::AUTOMATIC);
-            scroller->set_expand();    
-            
             Gtk::ColumnView* columnView = Gtk::make_managed<Gtk::ColumnView>();
             columnView->set_expand();
 
-            mOpenedItems.push_back(OpenedItem(columnView, arc));
-            mOpenedItems.back().mOpenedPath = std::filesystem::path(file->get_path());
-
+            OpenedItem* scroller = Gtk::make_managed<OpenedItem>(columnView, arc);
+            scroller->set_has_frame(false);
+            scroller->set_policy(Gtk::PolicyType::AUTOMATIC, Gtk::PolicyType::AUTOMATIC);
+            scroller->set_expand();    
+            scroller->add_controller(mTreeClicked);
+            
             uint32_t magic = stream.peekUInt32(0);
             if(magic == 1499560496){
-                mOpenedItems.back().mCompressionFmt = Compression::Format::YAZ0;
+                scroller->mCompressionFmt = Compression::Format::YAZ0;
             } else if(magic == 1499560240){
-                mOpenedItems.back().mCompressionFmt = Compression::Format::YAY0;
+                scroller->mCompressionFmt = Compression::Format::YAY0;
             } else {
-                mOpenedItems.back().mCompressionFmt = Compression::Format::None;
+                scroller->mCompressionFmt = Compression::Format::None;
             }
 
-            scroller->set_child(*columnView);
-            scroller->add_controller(mTreeClicked);
-
-            mNotebook->append_page(*scroller, file->get_basename());
+            auto tab = Gtk::make_managed<ItemTab>(file->get_basename(), mNotebook, scroller);
+            mNotebook->append_page(*scroller, *tab);
         }
     } else if(extension == ".iso" || extension == ".gcm") {
         std::shared_ptr img = Disk::Image::Create();
@@ -373,20 +391,17 @@ void MainWindow::OpenArchive(Glib::RefPtr<Gio::AsyncResult>& result){
         } else {
             mStatus->push(std::format("Opened image {} ", file->get_path()));
 
-            Gtk::ScrolledWindow* scroller = Gtk::make_managed<Gtk::ScrolledWindow>();
-            scroller->set_has_frame(false);
-            scroller->set_policy(Gtk::PolicyType::AUTOMATIC, Gtk::PolicyType::AUTOMATIC);
-            scroller->set_expand();    
-            
             Gtk::ColumnView* columnView = Gtk::make_managed<Gtk::ColumnView>();
             columnView->set_expand();
-            
-            mOpenedItems.push_back(OpenedItem(columnView, img));
-            mOpenedItems.back().mOpenedPath = std::filesystem::path(file->get_path());
-            scroller->set_child(*columnView);
+
+            OpenedItem* scroller = Gtk::make_managed<OpenedItem>(columnView, img);
+            scroller->set_has_frame(false);
+            scroller->set_policy(Gtk::PolicyType::AUTOMATIC, Gtk::PolicyType::AUTOMATIC);
+            scroller->set_expand();                
             scroller->add_controller(mTreeClicked);
 
-            mNotebook->append_page(*scroller, file->get_basename());
+            auto tab = Gtk::make_managed<ItemTab>(file->get_basename(), mNotebook, scroller);
+            mNotebook->append_page(*scroller, *tab);
         }
     }
 
@@ -403,10 +418,8 @@ void MainWindow::OnOpen(){
 }
 
 void MainWindow::OnSave(){
-    if(mOpenedItems.size() > 0){
-        int page = mNotebook->get_current_page();
-        mOpenedItems[page].Save();
-    }
+    int page = mNotebook->get_current_page();
+    dynamic_cast<OpenedItem*>(mNotebook->get_nth_page(page))->Save();
 }
 
 void MainWindow::OnSaveAs(){
@@ -465,8 +478,6 @@ MainWindow::MainWindow(BaseObjectType* cobject, const Glib::RefPtr<Gtk::Builder>
 
     mStatus = builder->get_widget<Gtk::Statusbar>("gctoolsStatusBar");
     mNotebook = builder->get_widget<Gtk::Notebook>("openedPages");
-    mNotebook->signal_switch_page().connect(sigc::mem_fun(*this, &MainWindow::PageChanged));
-    mNotebook->signal_page_removed().connect(sigc::mem_fun(*this, &MainWindow::PageRemoved));
 
     mTreeContextMenuModel = builder->get_object<Gio::Menu>("ctxMenuModel");
     mNotebookContextMenuModel = builder->get_object<Gio::Menu>("ctxNotebookMenuModel");
@@ -483,7 +494,7 @@ MainWindow::MainWindow(BaseObjectType* cobject, const Glib::RefPtr<Gtk::Builder>
     mNotebookClicked->set_button(GDK_BUTTON_SECONDARY);
     mNotebookClicked->signal_pressed().connect(sigc::mem_fun(*this, &MainWindow::NotebookRightClicked));
     mNotebook->add_controller(mNotebookClicked);
-
+    
     mSettingsDialog = BuildSettingsDialog();
     
     mSettingsDialog->Builder()->get_widget<Gtk::Button>("applyButton")->signal_clicked().connect([&](){

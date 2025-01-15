@@ -31,10 +31,11 @@ public:
     std::vector<CellItemFilesystemNode> mChildren;
 };
 
-class OpenedItem {
+// TODO Make this some sort of template so that both dist and archive can use it without duplication?
+class OpenedItem : public Gtk::ScrolledWindow {
 public:
-    int mIconSize { 64 };
     bool mIsArchive { true };
+    std::filesystem::path mOpenedPath;
     Gtk::ColumnView* mView { nullptr };
     std::shared_ptr<Disk::Image> mDisk { nullptr };
     std::shared_ptr<Archive::Rarc> mArchive { nullptr };
@@ -46,7 +47,6 @@ public:
     std::vector<CellItemFilesystemNode> mDiskItems;
     std::vector<CellItemFilesystemNode> mArchiveItems;
 
-    std::filesystem::path mOpenedPath;
     Compression::Format mCompressionFmt;
 
     void AddDirectoryNodeArchive(std::vector<CellItemFilesystemNode>& items, std::shared_ptr<Archive::Folder> directory, std::filesystem::path curPath);
@@ -66,6 +66,20 @@ public:
     OpenedItem(Gtk::ColumnView* view, std::shared_ptr<Archive::Rarc> arc);
     OpenedItem(Gtk::ColumnView* view, std::shared_ptr<Disk::Image> img);
 };
+
+class ItemTab : public Gtk::Box {
+public:
+    Gtk::Label mLabel;
+    Gtk::Image mIconClose;
+    Glib::RefPtr<Gtk::GestureClick> mCloseTabClicked;
+    OpenedItem* mPageItem;
+    Gtk::Notebook* mNotebook;
+    
+    void CloseItem(int n_press, double x, double y);
+
+    ItemTab(std::string label, Gtk::Notebook* notebook, OpenedItem* item);
+};
+
 
 class ModelColumns : public Glib::Object {
 public:
@@ -125,12 +139,6 @@ protected:
 
     void TreeClicked(int n_press, double x, double y);
     void NotebookRightClicked(int n_press, double x, double y);
-
-    void PageRemoved(Widget* child, guint idx) { mOpenedItems.erase(mOpenedItems.begin() + idx); }
-    void PageChanged(Widget* child, guint idx) { if(child != nullptr) mContextMenu.set_parent(*child); }
-
-    std::vector<OpenedItem> mOpenedItems;
-
     Gtk::Statusbar* mStatus;
     Gtk::Notebook* mNotebook;
     Gtk::PopoverMenu mContextMenu;
