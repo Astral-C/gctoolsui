@@ -35,44 +35,44 @@ void ExtractDir(std::shared_ptr<Disk::Folder> dir){
 }
 
 Glib::RefPtr<Gio::ListModel> OpenedItem::CreateArchiveTreeModel(const Glib::RefPtr<Glib::ObjectBase>& item){
-    auto col = std::dynamic_pointer_cast<ArchiveFSNode>(item);
+    auto col = std::dynamic_pointer_cast<FSNode<Archive::Folder, Archive::File>>(item);
     if (col && !col->mIsFolder)
         return {};
 
-    auto result = Gio::ListStore<ArchiveFSNode>::create();
+    auto result = Gio::ListStore<FSNode<Archive::Folder, Archive::File>>::create();
     
     if(col){
         for(auto folder : col->mFolderEntry->GetSubdirectories()){
-            result->append(ArchiveFSNode::create(folder));
+            result->append(FSNode<Archive::Folder, Archive::File>::create(folder));
         }
 
         for(auto file : col->mFolderEntry->GetFiles()){
-            result->append(ArchiveFSNode::create(file));
+            result->append(FSNode<Archive::Folder, Archive::File>::create(file));
         }
     } else {
-        result->append(ArchiveFSNode::create(mArchive->GetRoot()));
+        result->append(FSNode<Archive::Folder, Archive::File>::create(mArchive->GetRoot()));
     }
     
     return result;
 }
 
 Glib::RefPtr<Gio::ListModel> OpenedItem::CreateDiskTreeModel(const Glib::RefPtr<Glib::ObjectBase>& item){
-    auto col = std::dynamic_pointer_cast<DiskFSNode>(item);
+    auto col = std::dynamic_pointer_cast<FSNode<Disk::Folder, Disk::File>>(item);
     if (col && !col->mIsFolder)
         return {};
 
-    auto result = Gio::ListStore<DiskFSNode>::create();
+    auto result = Gio::ListStore<FSNode<Disk::Folder, Disk::File>>::create();
     
     if(col){
         for(auto folder : col->mFolderEntry->GetSubdirectories()){
-            result->append(DiskFSNode::create(folder));
+            result->append(FSNode<Disk::Folder, Disk::File>::create(folder));
         }
 
         for(auto file : col->mFolderEntry->GetFiles()){
-            result->append(DiskFSNode::create(file));
+            result->append(FSNode<Disk::Folder, Disk::File>::create(file));
         }
     } else {
-        result->append(DiskFSNode::create(mDisk->GetRoot()));
+        result->append(FSNode<Disk::Folder, Disk::File>::create(mDisk->GetRoot()));
     }
   
   return result;
@@ -123,96 +123,63 @@ void OpenedItem::OnBindName(const Glib::RefPtr<Gtk::ListItem>& list_item){
     auto image = dynamic_cast<Gtk::Image*>(box->get_first_child());
     if(!image) return;
 
-    if(mIsArchive) {
-        auto col = std::dynamic_pointer_cast<ArchiveFSNode>(row->get_item());
-        if (!col) return;
-
-        if(col->mIsFolder){
-            image->set_from_icon_name("folder");
-        } else {
-            if(std::filesystem::path(col->mEntryName).extension() == ".bti"){
-                Bti img;
-                bStream::CMemoryStream stream(col->mFileEntry->GetData(), col->mFileEntry->GetSize(), bStream::Endianess::Big, bStream::OpenMode::In);
-                
-                if(img.Load(&stream)){
-                    auto pixbuf = Gdk::Pixbuf::create_from_data(img.GetData(), Gdk::Colorspace::RGB, true, 8, img.mWidth, img.mHeight, img.mWidth*4);
-                    float ratio = std::min(static_cast<float>(32) / static_cast<float>(img.mWidth), static_cast<float>(32) / static_cast<float>(img.mHeight));
-                    image->set_pixel_size(32);
-                    image->set(pixbuf->scale_simple(static_cast<int>(img.mWidth * ratio), static_cast<int>(img.mHeight * ratio), Gdk::InterpType::NEAREST));
-                }
-            } else if(std::filesystem::path(col->mEntryName).extension() == ".tpl"){
-                Tpl img;
-                bStream::CMemoryStream stream(col->mFileEntry->GetData(), col->mFileEntry->GetSize(), bStream::Endianess::Big, bStream::OpenMode::In);
-                
-                if(img.Load(&stream)){
-                    auto pixbuf = Gdk::Pixbuf::create_from_data(img.GetImage(0)->GetData(), Gdk::Colorspace::RGB, true, 8, img.GetImage(0)->mWidth, img.GetImage(0)->mHeight, img.GetImage(0)->mWidth*4);
-                    float ratio = std::min(static_cast<float>(32) / static_cast<float>(img.GetImage(0)->mWidth), static_cast<float>(32) / static_cast<float>(img.GetImage(0)->mHeight));
-                    image->set_pixel_size(32);
-                    image->set(pixbuf->scale_simple(static_cast<int>(img.GetImage(0)->mWidth * ratio), static_cast<int>(img.GetImage(0)->mHeight * ratio), Gdk::InterpType::NEAREST));
-                }
-            }
-        }
-
-        auto label = dynamic_cast<Gtk::Label*>(box->get_last_child());
-        if (!label) return;
-        label->set_text(col->mEntryName);
-        col->mLabel = label;
+    NodeAccessor node;
+    if(mIsArchive){
+        node.mArc = std::dynamic_pointer_cast<FSNode<Archive::Folder, Archive::File>>(row->get_item());
+        if (!node.mArc) return;
     } else {
-        auto col = std::dynamic_pointer_cast<DiskFSNode>(row->get_item());
-        if (!col) return;
+        node.mDisk = std::dynamic_pointer_cast<FSNode<Disk::Folder, Disk::File>>(row->get_item());
+        if (!node.mDisk) return;
+    }
 
-        if(col->mIsFolder){
-            image->set_from_icon_name("folder");
-        } else {
-            if(std::filesystem::path(col->mEntryName).extension() == ".bti"){
-                Bti img;
-                bStream::CMemoryStream stream(col->mFileEntry->GetData(), col->mFileEntry->GetSize(), bStream::Endianess::Big, bStream::OpenMode::In);
-                
-                if(img.Load(&stream)){
-                    auto pixbuf = Gdk::Pixbuf::create_from_data(img.GetData(), Gdk::Colorspace::RGB, true, 8, img.mWidth, img.mHeight, img.mWidth*4);
-                    float ratio = std::min(static_cast<float>(32) / static_cast<float>(img.mWidth), static_cast<float>(32) / static_cast<float>(img.mHeight));
-                    image->set_pixel_size(32);
-                    image->set(pixbuf->scale_simple(static_cast<int>(img.mWidth * ratio), static_cast<int>(img.mHeight * ratio), Gdk::InterpType::NEAREST));
-                }
-            } else if(std::filesystem::path(col->mEntryName).extension() == ".tpl"){
-                Tpl img;
-                bStream::CMemoryStream stream(col->mFileEntry->GetData(), col->mFileEntry->GetSize(), bStream::Endianess::Big, bStream::OpenMode::In);
-                
-                if(img.Load(&stream)){
-                    auto pixbuf = Gdk::Pixbuf::create_from_data(img.GetImage(0)->GetData(), Gdk::Colorspace::RGB, true, 8, img.GetImage(0)->mWidth, img.GetImage(0)->mHeight, img.GetImage(0)->mWidth*4);
-                    float ratio = std::min(static_cast<float>(32) / static_cast<float>(img.GetImage(0)->mWidth), static_cast<float>(32) / static_cast<float>(img.GetImage(0)->mHeight));
-                    image->set_pixel_size(32);
-                    image->set(pixbuf->scale_simple(static_cast<int>(img.GetImage(0)->mWidth * ratio), static_cast<int>(img.GetImage(0)->mHeight * ratio), Gdk::InterpType::NEAREST));
-                }
+    if(node.IsFolder()){
+        image->set_from_icon_name("folder");
+    } else {
+        if(std::filesystem::path(node.GetName()).extension() == ".bti"){
+            Bti img;
+            bStream::CMemoryStream stream(node.GetData(), node.GetSize(), bStream::Endianess::Big, bStream::OpenMode::In);
+            
+            if(img.Load(&stream)){
+                auto pixbuf = Gdk::Pixbuf::create_from_data(img.GetData(), Gdk::Colorspace::RGB, true, 8, img.mWidth, img.mHeight, img.mWidth*4);
+                float ratio = std::min(static_cast<float>(32) / static_cast<float>(img.mWidth), static_cast<float>(32) / static_cast<float>(img.mHeight));
+                image->set_pixel_size(32);
+                image->set(pixbuf->scale_simple(static_cast<int>(img.mWidth * ratio), static_cast<int>(img.mHeight * ratio), Gdk::InterpType::NEAREST));
+            }
+        } else if(std::filesystem::path(node.GetName()).extension() == ".tpl"){
+            Tpl img;
+            bStream::CMemoryStream stream(node.GetData(), node.GetSize(), bStream::Endianess::Big, bStream::OpenMode::In);
+            
+            if(img.Load(&stream)){
+                auto pixbuf = Gdk::Pixbuf::create_from_data(img.GetImage(0)->GetData(), Gdk::Colorspace::RGB, true, 8, img.GetImage(0)->mWidth, img.GetImage(0)->mHeight, img.GetImage(0)->mWidth*4);
+                float ratio = std::min(static_cast<float>(32) / static_cast<float>(img.GetImage(0)->mWidth), static_cast<float>(32) / static_cast<float>(img.GetImage(0)->mHeight));
+                image->set_pixel_size(32);
+                image->set(pixbuf->scale_simple(static_cast<int>(img.GetImage(0)->mWidth * ratio), static_cast<int>(img.GetImage(0)->mHeight * ratio), Gdk::InterpType::NEAREST));
             }
         }
+    }
 
-        auto label = dynamic_cast<Gtk::Label*>(box->get_last_child());
-        if (!label) return;
-        label->set_text(col->mEntryName);
-        col->mLabel = label;
-    }   
+    auto label = dynamic_cast<Gtk::Label*>(box->get_last_child());
+    if (!label) return;
+    label->set_text(node.GetName());
+    node.SetLabel(label);
 }
 
 void OpenedItem::OnBindSize(const Glib::RefPtr<Gtk::ListItem>& list_item){
     auto row = std::dynamic_pointer_cast<Gtk::TreeListRow>(list_item->get_item());
     if (!row) return;
 
+    NodeAccessor node;
     if(mIsArchive){
-        auto col = std::dynamic_pointer_cast<ArchiveFSNode>(row->get_item());
-        if (!col) return;
-        
-        auto label = dynamic_cast<Gtk::Label*>(list_item->get_child());
-        if (!label) return;
-        label->set_text(col->mEntrySize);
+        node.mArc = std::dynamic_pointer_cast<FSNode<Archive::Folder, Archive::File>>(row->get_item());
+        if (!node.mArc) return;
     } else {
-        auto col = std::dynamic_pointer_cast<DiskFSNode>(row->get_item());
-        if (!col) return;
-        
-        auto label = dynamic_cast<Gtk::Label*>(list_item->get_child());
-        if (!label) return;
-        label->set_text(col->mEntrySize);
+        node.mDisk = std::dynamic_pointer_cast<FSNode<Disk::Folder, Disk::File>>(row->get_item());
+        if (!node.mDisk) return;
     }
+    
+    auto label = dynamic_cast<Gtk::Label*>(list_item->get_child());
+    if (!label) return;
+    label->set_text(node.GetSizeStr());
 }
 
 
@@ -443,22 +410,14 @@ void MainWindow::OnRename(){
         auto row = opened->mTreeListModel->get_row(opened->mSelectedRow);
         if(row->get_item() == nullptr) return;
 
-        std::string name;
+        NodeAccessor node;
         if(opened->mIsArchive){
-            auto col = std::dynamic_pointer_cast<ArchiveFSNode>(row->get_item());
-            if(col->mIsFolder){
-                name = col->mFolderEntry->GetName();
-            } else {
-                name = col->mFileEntry->GetName();
-            }
+            node.mArc = std::dynamic_pointer_cast<FSNode<Archive::Folder, Archive::File>>(row->get_item());
         } else {
-            auto col = std::dynamic_pointer_cast<DiskFSNode>(row->get_item());
-            if(col->mIsFolder){
-                name = col->mFolderEntry->GetName();
-            } else {
-                name = col->mFileEntry->GetName();
-            }
+            node.mDisk = std::dynamic_pointer_cast<FSNode<Disk::Folder, Disk::File>>(row->get_item());
         }
+
+        std::string name = node.GetName();
 
         mBuilder->get_widget<Gtk::Text>("nameBox")->get_buffer()->set_text(name);
         
@@ -497,28 +456,24 @@ void MainWindow::Import(Glib::RefPtr<Gio::AsyncResult>& result){
         OpenedItem* opened = dynamic_cast<OpenedItem*>(mNotebook->get_nth_page(mNotebook->get_current_page()));
 
         auto row = opened->mTreeListModel->get_row(opened->mSelectedRow);
+
+        NodeAccessor node;
         if(opened->mIsArchive){
-            auto col = std::dynamic_pointer_cast<ArchiveFSNode>(row->get_item());
-            if(!col->mIsFolder){
-                col = std::dynamic_pointer_cast<ArchiveFSNode>(row->get_parent()->get_item());
-            } 
-            
-            std::shared_ptr<Archive::File> newFile = Archive::File::Create();
-            newFile->SetName(file->get_basename());
-            newFile->SetData(data, size);
-            col->mFolderEntry->AddFile(newFile);
+            node.mArc = std::dynamic_pointer_cast<FSNode<Archive::Folder, Archive::File>>(row->get_item());
         } else {
-            auto col = std::dynamic_pointer_cast<DiskFSNode>(row->get_item());
-            if(!col->mIsFolder){
-                col = std::dynamic_pointer_cast<DiskFSNode>(row->get_parent()->get_item());
-            } 
-            
-            std::shared_ptr<Disk::File> newFile = Disk::File::Create();
-            newFile->SetName(file->get_basename());
-            newFile->SetData(data, size);
-            col->mFolderEntry->AddFile(newFile);
+            node.mDisk = std::dynamic_pointer_cast<FSNode<Disk::Folder, Disk::File>>(row->get_item());
         }
 
+        if(node.IsFolder()){
+            if(opened->mIsArchive){
+                node.mArc = std::dynamic_pointer_cast<FSNode<Archive::Folder, Archive::File>>(row->get_parent()->get_item());
+            } else {
+                node.mDisk = std::dynamic_pointer_cast<FSNode<Disk::Folder, Disk::File>>(row->get_parent()->get_item());
+            }
+        } 
+        
+        node.AddFile(file->get_basename(), data, size);
+        
         if(row->get_expanded()){
             row->set_expanded(false);
             row->set_expanded(true);    
@@ -555,40 +510,19 @@ void MainWindow::OnDelete(){
 
         auto parent_row = row->get_parent();
         if(parent_row->get_item() == nullptr) return;
-        
+
+        NodeAccessor node;
+        NodeAccessor parent_node;
         if(opened->mIsArchive){
-            auto parent = std::dynamic_pointer_cast<ArchiveFSNode>(parent_row->get_item());
-            auto child = std::dynamic_pointer_cast<ArchiveFSNode>(row->get_item());
-            if(!parent->mIsFolder) return;
-
-            if(child->mIsFolder){
-                auto iter = std::find(parent->mFolderEntry->GetSubdirectories().begin(), parent->mFolderEntry->GetSubdirectories().end(), child->mFolderEntry);
-                if(iter != parent->mFolderEntry->GetSubdirectories().end()){
-                    parent->mFolderEntry->GetSubdirectories().erase(iter);
-                }
-            } else {
-                auto iter = std::find(parent->mFolderEntry->GetFiles().begin(), parent->mFolderEntry->GetFiles().end(), child->mFileEntry);
-                if(iter != parent->mFolderEntry->GetFiles().end()){
-                    parent->mFolderEntry->GetFiles().erase(iter);
-                }
-            }
+            parent_node.mArc = std::dynamic_pointer_cast<FSNode<Archive::Folder, Archive::File>>(parent_row->get_item());
+            node.mArc = std::dynamic_pointer_cast<FSNode<Archive::Folder, Archive::File>>(row->get_item());
         } else {
-            auto parent = std::dynamic_pointer_cast<DiskFSNode>(parent_row->get_item());
-            auto child = std::dynamic_pointer_cast<DiskFSNode>(row->get_item());
-            if(!parent->mIsFolder) return;
-
-            if(child->mIsFolder){
-                auto iter = std::find(parent->mFolderEntry->GetSubdirectories().begin(), parent->mFolderEntry->GetSubdirectories().end(), child->mFolderEntry);
-                if(iter != parent->mFolderEntry->GetSubdirectories().end()){
-                    parent->mFolderEntry->GetSubdirectories().erase(iter);
-                }
-            } else {
-                auto iter = std::find(parent->mFolderEntry->GetFiles().begin(), parent->mFolderEntry->GetFiles().end(), child->mFileEntry);
-                if(iter != parent->mFolderEntry->GetFiles().end()){
-                    parent->mFolderEntry->GetFiles().erase(iter);
-                }
-            }
+            parent_node.mDisk = std::dynamic_pointer_cast<FSNode<Disk::Folder, Disk::File>>(parent_row->get_item());
+            node.mDisk = std::dynamic_pointer_cast<FSNode<Disk::Folder, Disk::File>>(row->get_item());
         }
+
+        parent_node.Delete(node);
+
         auto parent = row->get_parent();
         if(parent != nullptr){
             parent->set_expanded(false);
@@ -604,54 +538,38 @@ void MainWindow::Extract(Glib::RefPtr<Gio::AsyncResult>& result){
         OpenedItem* opened = dynamic_cast<OpenedItem*>(mNotebook->get_nth_page(mNotebook->get_current_page()));
 
         auto row = opened->mTreeListModel->get_row(opened->mSelectedRow);
+
+        NodeAccessor node;
         if(opened->mIsArchive){
-            auto col = std::dynamic_pointer_cast<ArchiveFSNode>(row->get_item());
-            if(!col->mIsFolder){                
-                try {
-                    file = mFileDialog->save_finish(result);
-                } catch(const Gtk::DialogError& err) {
-                    return;
-                }
-
-                bStream::CFileStream stream(file->get_path(), bStream::Endianess::Big, bStream::OpenMode::Out);
-                stream.writeBytes(col->mFileEntry->GetData(), col->mFileEntry->GetSize());
-            } else {
-                try {
-                    file = mFileDialog->select_folder_finish(result);
-                } catch(const Gtk::DialogError& err) {
-                    return;
-                }
-
-                auto cur = std::filesystem::current_path();
-                std::filesystem::current_path(std::filesystem::path(file->get_path()));
-                ExtractDir(col->mFolderEntry);
-                std::filesystem::current_path(cur);
-            }
+            node.mArc = std::dynamic_pointer_cast<FSNode<Archive::Folder, Archive::File>>(row->get_item());
         } else {
-            auto col = std::dynamic_pointer_cast<DiskFSNode>(row->get_item());
-            if(!col->mIsFolder){
-                try {
-                    file = mFileDialog->save_finish(result);
-                } catch(const Gtk::DialogError& err) {
-                    return;
-                }
-
-                bStream::CFileStream stream(file->get_path(), bStream::Endianess::Big, bStream::OpenMode::Out);
-                stream.writeBytes(col->mFileEntry->GetData(), col->mFileEntry->GetSize());
-            } else {
-                try {
-                    file = mFileDialog->select_folder_finish(result);
-                } catch(const Gtk::DialogError& err) {
-                    return;
-                }
-
-                auto cur = std::filesystem::current_path();
-                std::filesystem::current_path(std::filesystem::path(file->get_path()));
-                ExtractDir(col->mFolderEntry);
-                std::filesystem::current_path(cur);
-            }
+            node.mDisk = std::dynamic_pointer_cast<FSNode<Disk::Folder, Disk::File>>(row->get_item());
         }
 
+        if(!node.IsFolder()){                
+            try {
+                file = mFileDialog->save_finish(result);
+            } catch(const Gtk::DialogError& err) {
+                return;
+            }
+
+            bStream::CFileStream stream(file->get_path(), bStream::Endianess::Big, bStream::OpenMode::Out);
+            stream.writeBytes(node.GetData(), node.GetSize());
+        } else {
+            try {
+                file = mFileDialog->select_folder_finish(result);
+            } catch(const Gtk::DialogError& err) {
+                return;
+            }
+            auto cur = std::filesystem::current_path();
+            std::filesystem::current_path(std::filesystem::path(file->get_path()));
+            if(node.mArc != nullptr){
+                ExtractDir(node.mDisk->mFolderEntry);
+            } else {
+                ExtractDir(node.mArc->mFolderEntry);
+            }
+            std::filesystem::current_path(cur);
+        }
     }
 }
 
@@ -667,22 +585,18 @@ void MainWindow::OnExtract(){
             mFileDialog->set_modal(true);
         }
         
+        NodeAccessor node;
         if(opened->mIsArchive){
-            auto col = std::dynamic_pointer_cast<ArchiveFSNode>(row->get_item());
-            if(!col->mIsFolder){
-                mFileDialog->set_initial_name(col->mEntryName);
-                mFileDialog->save(*this, sigc::mem_fun(*this, &MainWindow::Extract));
-            } else {
-                mFileDialog->select_folder(*this, sigc::mem_fun(*this, &MainWindow::Extract));
-            }
+            node.mArc = std::dynamic_pointer_cast<FSNode<Archive::Folder, Archive::File>>(row->get_item());
         } else {
-            auto col = std::dynamic_pointer_cast<DiskFSNode>(row->get_item());
-            if(!col->mIsFolder){
-                mFileDialog->set_initial_name(col->mEntryName);
-                mFileDialog->save(*this, sigc::mem_fun(*this, &MainWindow::Extract));
-            } else {
-                mFileDialog->select_folder(*this, sigc::mem_fun(*this, &MainWindow::Extract));
-            }
+            node.mDisk = std::dynamic_pointer_cast<FSNode<Disk::Folder, Disk::File>>(row->get_item());
+        }
+        
+        if(!node.IsFolder()){
+            mFileDialog->set_initial_name(node.GetName());
+            mFileDialog->save(*this, sigc::mem_fun(*this, &MainWindow::Extract));
+        } else {
+            mFileDialog->select_folder(*this, sigc::mem_fun(*this, &MainWindow::Extract));
         }
     }
 }
@@ -694,21 +608,17 @@ void MainWindow::OnNewFolder(){
         auto row = opened->mTreeListModel->get_row(opened->mSelectedRow);
         if(row->get_item() == nullptr) return;
         
+        NodeAccessor node;
         if(opened->mIsArchive){
-            auto col = std::dynamic_pointer_cast<ArchiveFSNode>(row->get_item());
-            if(col->mIsFolder){
-                std::shared_ptr<Archive::Folder> newFolder = Archive::Folder::Create(col->mFolderEntry->GetArchive().lock());
-                newFolder->SetName("New Folder");
-                col->mFolderEntry->AddSubdirectory(newFolder);
-            }
+            node.mArc = std::dynamic_pointer_cast<FSNode<Archive::Folder, Archive::File>>(row->get_item());
         } else {
-            auto col = std::dynamic_pointer_cast<DiskFSNode>(row->get_item());
-            if(col->mIsFolder){
-                std::shared_ptr<Disk::Folder> newFolder = Disk::Folder::Create(col->mFolderEntry->GetDisk());
-                newFolder->SetName("New Folder");
-                col->mFolderEntry->AddSubdirectory(newFolder);            
-            }
+            node.mDisk = std::dynamic_pointer_cast<FSNode<Disk::Folder, Disk::File>>(row->get_item());
         }
+
+        if(node.IsFolder()){
+            node.AddSubdirectory("New Folder");
+        }
+
         if(row->get_expanded()){
             row->set_expanded(false);
             row->set_expanded(true);    
@@ -759,27 +669,16 @@ MainWindow::MainWindow(BaseObjectType* cobject, const Glib::RefPtr<Gtk::Builder>
 
             auto row = opened->mTreeListModel->get_row(opened->mSelectedRow);
             if(row->get_item() == nullptr) return;
-            
+
+            NodeAccessor node;
             if(opened->mIsArchive){
-                auto col = std::dynamic_pointer_cast<ArchiveFSNode>(row->get_item());
-                col->mLabel->set_text(newName);
-                col->mEntryName = newName;
-                if(col->mIsFolder){
-                    col->mFolderEntry->SetName(newName);
-                } else {
-                    col->mFileEntry->SetName(newName);
-                }
+                node.mArc = std::dynamic_pointer_cast<FSNode<Archive::Folder, Archive::File>>(row->get_item());
             } else {
-                auto col = std::dynamic_pointer_cast<DiskFSNode>(row->get_item());
-                col->mLabel->set_text(newName);
-                col->mEntryName = newName;
-                if(col->mIsFolder){
-                    col->mFolderEntry->SetName(newName);
-                } else {
-                    col->mFileEntry->SetName(newName);
-                }
+                node.mDisk = std::dynamic_pointer_cast<FSNode<Disk::Folder, Disk::File>>(row->get_item());
             }
             
+            node.GetLabel()->set_text(newName);
+            node.SetName(newName);            
         }
 
         mRenameDialog->set_visible(false);

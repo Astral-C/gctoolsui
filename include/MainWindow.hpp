@@ -7,30 +7,44 @@
 #include <cmath>
 #include "bytesize.hpp"
 
-class ArchiveFSNode : public Glib::Object {
+template<typename T>
+concept Folder = requires(T t){
+    { t.GetName() } -> std::same_as<std::string>;
+};
+
+
+template<typename T>
+concept File = requires(T t){
+    { t.GetName() } -> std::same_as<std::string>;
+    { t.GetSize() } -> std::convertible_to<std::size_t>;
+    { t.GetData() } -> std::same_as<uint8_t*>;
+};
+
+template<Folder T, File U>
+class FSNode : public Glib::Object {
 public:
     Glib::ustring mEntryName;
     Glib::ustring mEntrySize;
     
     bool mIsFolder;
 
-    std::shared_ptr<Archive::Folder> mFolderEntry;
-    std::shared_ptr<Archive::File> mFileEntry;
+    std::shared_ptr<T> mFolderEntry;
+    std::shared_ptr<U> mFileEntry;
 
-    std::vector<ArchiveFSNode> mChildren;
+    std::vector<FSNode> mChildren;
 
     Gtk::Label* mLabel;
 
-    static Glib::RefPtr<ArchiveFSNode> create(std::shared_ptr<Archive::Folder> folder){
-        return Glib::make_refptr_for_instance<ArchiveFSNode>(new ArchiveFSNode(folder));
+    static Glib::RefPtr<FSNode> create(std::shared_ptr<T> folder){
+        return Glib::make_refptr_for_instance<FSNode>(new FSNode<T, U>(folder));
     }
 
-    static Glib::RefPtr<ArchiveFSNode> create(std::shared_ptr<Archive::File> file){
-        return Glib::make_refptr_for_instance<ArchiveFSNode>(new ArchiveFSNode(file));
+    static Glib::RefPtr<FSNode> create(std::shared_ptr<U> file){
+        return Glib::make_refptr_for_instance<FSNode>(new FSNode<T, U>(file));
     }
     
 protected:
-    ArchiveFSNode(std::shared_ptr<Archive::Folder> folder){
+    FSNode(std::shared_ptr<T> folder){
         mIsFolder = true;
         mFolderEntry = folder;
         mFileEntry = nullptr;
@@ -39,7 +53,7 @@ protected:
         mEntrySize = "";
     }
 
-    ArchiveFSNode(std::shared_ptr<Archive::File> file){
+    FSNode(std::shared_ptr<U> file){
         mIsFolder = false;
         mFolderEntry = nullptr;
         mFileEntry = file;
@@ -49,47 +63,147 @@ protected:
     }
 };
 
-class DiskFSNode : public Glib::Object {
-public:
-    Glib::ustring mEntryName;
-    Glib::ustring mEntrySize;
-    
-    bool mIsFolder;
+struct NodeAccessor {
+    Glib::RefPtr<FSNode<Disk::Folder, Disk::File>> mDisk { nullptr };
+    Glib::RefPtr<FSNode<Archive::Folder, Archive::File>> mArc { nullptr };
 
-    std::shared_ptr<Disk::Folder> mFolderEntry;
-    std::shared_ptr<Disk::File> mFileEntry;
-
-    //std::vector<ArchiveFSNode> mMountedArchive; // perhaps?
-    std::vector<DiskFSNode> mChildren;
-
-    Gtk::Label* mLabel;
-
-    static Glib::RefPtr<DiskFSNode> create(std::shared_ptr<Disk::Folder> folder){
-        return Glib::make_refptr_for_instance<DiskFSNode>(new DiskFSNode(folder));
+    void Delete(NodeAccessor child){
+        if(mArc != nullptr){
+            if(child.IsFolder()){
+                auto iter = std::find(mArc->mFolderEntry->GetSubdirectories().begin(), mArc->mFolderEntry->GetSubdirectories().end(), child.mArc->mFolderEntry);
+                if(iter != mArc->mFolderEntry->GetSubdirectories().end()){
+                    mArc->mFolderEntry->GetSubdirectories().erase(iter);
+                }
+            } else {
+                auto iter = std::find(mArc->mFolderEntry->GetFiles().begin(), mArc->mFolderEntry->GetFiles().end(), child.mArc->mFileEntry);
+                if(iter != mArc->mFolderEntry->GetFiles().end()){
+                    mArc->mFolderEntry->GetFiles().erase(iter);
+                }
+            }
+        } else {
+            if(child.IsFolder()){
+                auto iter = std::find(mDisk->mFolderEntry->GetSubdirectories().begin(), mDisk->mFolderEntry->GetSubdirectories().end(), child.mDisk->mFolderEntry);
+                if(iter != mDisk->mFolderEntry->GetSubdirectories().end()){
+                    mDisk->mFolderEntry->GetSubdirectories().erase(iter);
+                }
+            } else {
+                auto iter = std::find(mDisk->mFolderEntry->GetFiles().begin(), mDisk->mFolderEntry->GetFiles().end(), child.mDisk->mFileEntry);
+                if(iter != mDisk->mFolderEntry->GetFiles().end()){
+                    mDisk->mFolderEntry->GetFiles().erase(iter);
+                }
+            }            
+        }
     }
 
-    static Glib::RefPtr<DiskFSNode> create(std::shared_ptr<Disk::File> file){
-        return Glib::make_refptr_for_instance<DiskFSNode>(new DiskFSNode(file));
-    }
-    
-protected:
-    DiskFSNode(std::shared_ptr<Disk::Folder> folder){
-        mIsFolder = true;
-        mFolderEntry = folder;
-        mFileEntry = nullptr;
-
-        mEntryName = folder->GetName();
-        mEntrySize = "";
+    void AddSubdirectory(std::string name){
+        if(mArc != nullptr){
+            std::shared_ptr<Archive::Folder> newFolder = Archive::Folder::Create(mArc->mFolderEntry->GetArchive().lock());
+            newFolder->SetName("New Folder");
+            mArc->mFolderEntry->AddSubdirectory(newFolder);
+        } else {
+            std::shared_ptr<Disk::Folder> newFolder = Disk::Folder::Create(mDisk->mFolderEntry->GetDisk());
+            newFolder->SetName("New Folder");
+            mDisk->mFolderEntry->AddSubdirectory(newFolder);
+        }
     }
 
-    DiskFSNode(std::shared_ptr<Disk::File> file){
-        mIsFolder = false;
-        mFolderEntry = nullptr;
-        mFileEntry = file;
-
-        mEntryName = file->GetName();
-        mEntrySize = std::string(bytesize::bytesize(file->GetSize()));
+    void AddFile(std::string name, uint8_t* data, std::size_t size){
+        if(mArc != nullptr){
+            std::shared_ptr<Archive::File> newFile = Archive::File::Create();
+            newFile->SetName(name);
+            newFile->SetData(data, size);
+            mArc->mFolderEntry->AddFile(newFile);
+        } else {
+            std::shared_ptr<Disk::File> newFile = Disk::File::Create();
+            newFile->SetName(name);
+            newFile->SetData(data, size);
+            mDisk->mFolderEntry->AddFile(newFile);
+        }
     }
+
+    Gtk::Label* GetLabel(){
+        if(mArc != nullptr){
+            return mArc->mLabel;
+        } else {
+            return mDisk->mLabel;
+        }        
+    }
+
+    void SetLabel(Gtk::Label* l){
+        if(mArc != nullptr){
+            mArc->mLabel = l;
+        } else {
+            mDisk->mLabel = l;
+        }
+    }
+
+    bool& IsFolder(){
+        if(mArc != nullptr){
+            return mArc->mIsFolder;
+        } else {
+            return mDisk->mIsFolder;
+        }
+    }
+
+    Glib::ustring& GetName() {
+        if(mArc != nullptr){
+            return mArc->mEntryName;
+        } else {
+            return mDisk->mEntryName;
+        }
+    }
+
+    void SetName(std::string s) {
+        if(mArc != nullptr){
+            mArc->mEntryName = s;
+            if(!mArc->mIsFolder){
+                mArc->mFolderEntry->SetName(s);
+            } else {
+                mArc->mFileEntry->SetName(s);
+            }
+        } else {
+            mDisk->mEntryName = s;
+            if(!mDisk->mIsFolder){
+                mDisk->mFolderEntry->SetName(s);
+            } else {
+                mDisk->mFileEntry->SetName(s);
+            }
+        }
+    }
+
+    uint8_t* GetData(){
+        if(mArc != nullptr){
+            return mArc->mFileEntry->GetData();
+        } else {
+            return mDisk->mFileEntry->GetData();
+        }
+    }
+
+    void SetData(uint8_t* data, uint32_t size){
+        if(mArc != nullptr){
+            mArc->mFileEntry->SetData(data, size);
+        } else {
+            mDisk->mFileEntry->SetData(data, size);
+        }
+    }
+
+    std::size_t GetSize() {
+        if(mArc != nullptr){
+            return mArc->mFileEntry->GetSize();
+        } else {
+            return mDisk->mFileEntry->GetSize();
+        }
+    }
+
+    Glib::ustring& GetSizeStr() {
+        if(mArc != nullptr){
+            return mArc->mEntrySize;
+        } else {
+            return mDisk->mEntrySize;
+        }
+    }
+
+
 };
 
 // TODO Make this some sort of template so that both dist and archive can use it without duplication?
