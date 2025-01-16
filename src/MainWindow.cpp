@@ -478,10 +478,71 @@ void MainWindow::OnQuit(){
     set_visible(false);
 }
 
+void MainWindow::Import(Glib::RefPtr<Gio::AsyncResult>& result){
+    Glib::RefPtr<Gio::File> file;
+
+    try {
+        file = mFileDialog->open_finish(result);
+    } catch(const Gtk::DialogError& err) {
+        return;
+    }
+    
+    bStream::CFileStream stream(file->get_path(), bStream::Endianess::Big, bStream::OpenMode::In);
+    std::size_t size = stream.getSize();
+
+    uint8_t* data = new uint8_t[size];
+    stream.readBytesTo(data, size);
+
+    if(mNotebook->get_nth_page(mNotebook->get_current_page()) != nullptr){
+        OpenedItem* opened = dynamic_cast<OpenedItem*>(mNotebook->get_nth_page(mNotebook->get_current_page()));
+
+        auto row = opened->mTreeListModel->get_row(opened->mSelectedRow);
+        if(opened->mIsArchive){
+            auto col = std::dynamic_pointer_cast<ArchiveFSNode>(row->get_item());
+            if(!col->mIsFolder){
+                col = std::dynamic_pointer_cast<ArchiveFSNode>(row->get_parent()->get_item());
+            } 
+            
+            std::shared_ptr<Archive::File> newFile = Archive::File::Create();
+            newFile->SetName(file->get_basename());
+            newFile->SetData(data, size);
+            col->mFolderEntry->AddFile(newFile);
+        } else {
+            auto col = std::dynamic_pointer_cast<DiskFSNode>(row->get_item());
+            if(!col->mIsFolder){
+                col = std::dynamic_pointer_cast<DiskFSNode>(row->get_parent()->get_item());
+            } 
+            
+            std::shared_ptr<Disk::File> newFile = Disk::File::Create();
+            newFile->SetName(file->get_basename());
+            newFile->SetData(data, size);
+            col->mFolderEntry->AddFile(newFile);
+        }
+
+        if(row->get_expanded()){
+            row->set_expanded(false);
+            row->set_expanded(true);    
+        }
+        row->set_expanded(true);
+
+    }
+
+    delete data;
+}
+
 void MainWindow::OnImport(){
     if(mNotebook->get_nth_page(mNotebook->get_current_page()) != nullptr){
         OpenedItem* opened = dynamic_cast<OpenedItem*>(mNotebook->get_nth_page(mNotebook->get_current_page()));
-        //auto col = std::dynamic_pointer_cast<ModelColumns>(opened->mSelection->get_selected_item());
+
+        auto row = opened->mTreeListModel->get_row(opened->mSelectedRow);
+        if(row->get_item() == nullptr) return;
+
+        if(!mFileDialog){
+            mFileDialog = Gtk::FileDialog::create();
+            mFileDialog->set_modal(true);
+        }
+        
+        mFileDialog->open(*this, sigc::mem_fun(*this, &MainWindow::Import));
     }
 }
 
@@ -592,8 +653,6 @@ void MainWindow::Extract(Glib::RefPtr<Gio::AsyncResult>& result){
         }
 
     }
-
-
 }
 
 void MainWindow::OnExtract(){

@@ -176,6 +176,7 @@ protected:
     void OnQuit();
     void OnOpenSettings();
     void OpenArchive(Glib::RefPtr<Gio::AsyncResult>& result);
+    void Import(Glib::RefPtr<Gio::AsyncResult>& result);
     void Extract(Glib::RefPtr<Gio::AsyncResult>& result);
 
     void OnRename();
