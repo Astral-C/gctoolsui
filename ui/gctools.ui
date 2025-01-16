@@ -78,6 +78,13 @@
     <child>
       <menu id="ctxMenuModel">
         <section>
+          <attribute name="label">General</attribute>
+          <item>
+            <attribute name="action">fs.rename</attribute>
+            <attribute name="label">Rename</attribute>
+          </item>
+        </section>
+        <section>
           <attribute name="label">File</attribute>
           <item>
             <attribute name="action">fs.import</attribute>
@@ -100,6 +107,32 @@
           </item>
         </section>
       </menu>
+    </child>
+  </object>
+  <object class="GtkDialog" id="renameDialog">
+    <property name="default-height">50</property>
+    <property name="default-width">325</property>
+    <property name="icon-name">tool-pencil-symbolic</property>
+    <property name="title">Rename</property>
+    <property name="transient-for">mainWin</property>
+    <child>
+      <object class="GtkBox">
+        <property name="margin-bottom">5</property>
+        <property name="margin-end">6</property>
+        <property name="margin-start">5</property>
+        <property name="margin-top">5</property>
+        <child>
+          <object class="GtkText" id="nameBox">
+            <property name="hexpand">True</property>
+            <property name="margin-end">4</property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkButton" id="applyNameBtn">
+            <property name="label">Apply</property>
+          </object>
+        </child>
+      </object>
     </child>
   </object>
 </interface>
