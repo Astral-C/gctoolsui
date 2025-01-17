@@ -145,7 +145,8 @@ void OpenedItem::OnBindName(const Glib::RefPtr<Gtk::ListItem>& list_item){
         mContextMenu->set_pointing_to(Gdk::Rectangle {(int)absx, (int)absy, 0, 0});
         mContextMenu->popup();
     });
-    expander->add_controller(rowclick);
+    // get parent will succeed here, its just the cell item, see 217
+    expander->get_parent()->add_controller(rowclick);
 
     auto image = dynamic_cast<Gtk::Image*>(box->get_first_child());
     if(!image) return;
@@ -213,7 +214,7 @@ void OpenedItem::OnBindSize(const Glib::RefPtr<Gtk::ListItem>& list_item){
         mContextMenu->set_pointing_to(Gdk::Rectangle {(int)absx, (int)absy, 0, 0});
         mContextMenu->popup();
     });
-    // oh dear
+    // This is a horrible hack so that you can click the entire cell since the cell is the parent of the list item being populated here
     list_item->get_child()->get_parent()->add_controller(rowclick);
 
 }
