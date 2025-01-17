@@ -97,6 +97,7 @@ void OpenedItem::OnCreateNoExpander(const Glib::RefPtr<Gtk::ListItem>& list_item
 void OpenedItem::OnCreateIconItem(const Glib::RefPtr<Gtk::ListItem>& list_item){
     auto expander = Gtk::make_managed<Gtk::TreeExpander>();
     auto box = Gtk::make_managed<Gtk::Box>();
+
     auto image = Gtk::make_managed<Gtk::Image>();
     auto label = Gtk::make_managed<Gtk::Label>();
     image->set_halign(Gtk::Align::START);
@@ -112,17 +113,6 @@ void OpenedItem::OnBindName(const Glib::RefPtr<Gtk::ListItem>& list_item){
     auto row = std::dynamic_pointer_cast<Gtk::TreeListRow>(list_item->get_item());
     if (!row) return;
 
-    auto expander = dynamic_cast<Gtk::TreeExpander*>(list_item->get_child());
-    if (!expander) return;
-
-    expander->set_list_row(row);
-        
-    auto box = dynamic_cast<Gtk::Box*>(expander->get_child());
-    if(!box) return;
-
-    auto image = dynamic_cast<Gtk::Image*>(box->get_first_child());
-    if(!image) return;
-
     NodeAccessor node;
     if(mIsArchive){
         node.mArc = std::dynamic_pointer_cast<FSNode<Archive::Folder, Archive::File>>(row->get_item());
@@ -131,6 +121,34 @@ void OpenedItem::OnBindName(const Glib::RefPtr<Gtk::ListItem>& list_item){
         node.mDisk = std::dynamic_pointer_cast<FSNode<Disk::Folder, Disk::File>>(row->get_item());
         if (!node.mDisk) return;
     }
+
+    auto expander = dynamic_cast<Gtk::TreeExpander*>(list_item->get_child());
+    if (!expander) return;
+
+    expander->set_list_row(row);
+        
+    auto box = dynamic_cast<Gtk::Box*>(expander->get_child());
+    if(!box) return;
+
+    // attach right clicked gesture 
+    auto rowclick = Gtk::GestureClick::create();
+    rowclick->set_button(GDK_BUTTON_SECONDARY);
+    rowclick->signal_released().connect([this, expander, row](int n_press, double x, double y){
+        mSelectedRow = row;
+        Glib::RefPtr<Gdk::Display> display = Gdk::Display::get_default();
+        Glib::RefPtr<Gdk::Seat> seat = display->get_default_seat();
+        Glib::RefPtr<Gdk::Device> pointer = seat->get_pointer();
+        
+        double absx, absy;
+        pointer->get_surface_at_position(absx, absy);
+    
+        mContextMenu->set_pointing_to(Gdk::Rectangle {(int)absx, (int)absy, 0, 0});
+        mContextMenu->popup();
+    });
+    expander->add_controller(rowclick);
+
+    auto image = dynamic_cast<Gtk::Image*>(box->get_first_child());
+    if(!image) return;
 
     if(node.IsFolder()){
         image->set_from_icon_name("folder");
@@ -180,6 +198,24 @@ void OpenedItem::OnBindSize(const Glib::RefPtr<Gtk::ListItem>& list_item){
     auto label = dynamic_cast<Gtk::Label*>(list_item->get_child());
     if (!label) return;
     label->set_text(node.GetSizeStr());
+
+    auto rowclick = Gtk::GestureClick::create();
+    rowclick->set_button(GDK_BUTTON_SECONDARY);
+    rowclick->signal_released().connect([this, row](int n_press, double x, double y){
+        mSelectedRow = row;
+        Glib::RefPtr<Gdk::Display> display = Gdk::Display::get_default();
+        Glib::RefPtr<Gdk::Seat> seat = display->get_default_seat();
+        Glib::RefPtr<Gdk::Device> pointer = seat->get_pointer();
+        
+        double absx, absy;
+        pointer->get_surface_at_position(absx, absy);
+    
+        mContextMenu->set_pointing_to(Gdk::Rectangle {(int)absx, (int)absy, 0, 0});
+        mContextMenu->popup();
+    });
+    // oh dear
+    list_item->get_child()->get_parent()->add_controller(rowclick);
+
 }
 
 
@@ -281,16 +317,9 @@ void ItemTab::CloseItem(int n_press, double x, double y){
 
 void MainWindow::ActivatedItem(guint pos){
     if(mNotebook->get_nth_page(mNotebook->get_current_page()) != nullptr){
-        Glib::RefPtr<Gdk::Display> display = Gdk::Display::get_default();
-        Glib::RefPtr<Gdk::Seat> seat = display->get_default_seat();
-        Glib::RefPtr<Gdk::Device> pointer = seat->get_pointer();
-        dynamic_cast<OpenedItem*>(mNotebook->get_nth_page(mNotebook->get_current_page()))->mSelectedRow = pos;
-        
-        double x, y;
-        pointer->get_surface_at_position(x, y);
-    
-        mContextMenu.set_pointing_to(Gdk::Rectangle {(int)x, (int)y, 0, 0});
-        mContextMenu.popup();
+        // horrid
+        dynamic_cast<OpenedItem*>(mNotebook->get_nth_page(mNotebook->get_current_page()))->mSelectedRow = std::dynamic_pointer_cast<Gtk::TreeListRow>(dynamic_cast<OpenedItem*>(mNotebook->get_nth_page(mNotebook->get_current_page()))->mTreeListModel->get_row(pos));
+        OnRename();
     }
 }
 
@@ -345,6 +374,7 @@ void MainWindow::OpenArchive(Glib::RefPtr<Gio::AsyncResult>& result){
             scroller->set_expand();    
             
             scroller->mOpenedPath = file->get_path();
+            scroller->mContextMenu = &mContextMenu;
 
             uint32_t magic = stream.peekUInt32(0);
             if(magic == 1499560496){
@@ -375,6 +405,9 @@ void MainWindow::OpenArchive(Glib::RefPtr<Gio::AsyncResult>& result){
             scroller->set_has_frame(false);
             scroller->set_policy(Gtk::PolicyType::AUTOMATIC, Gtk::PolicyType::AUTOMATIC);
             scroller->set_expand();
+
+            scroller->mOpenedPath = file->get_path();
+            scroller->mContextMenu = &mContextMenu;
 
             auto tab = Gtk::make_managed<ItemTab>(file->get_basename(), mNotebook, scroller);
             mNotebook->append_page(*scroller, *tab);
@@ -407,7 +440,7 @@ void MainWindow::OnRename(){
     if(mNotebook->get_nth_page(mNotebook->get_current_page()) != nullptr){
         OpenedItem* opened = dynamic_cast<OpenedItem*>(mNotebook->get_nth_page(mNotebook->get_current_page()));
 
-        auto row = opened->mTreeListModel->get_row(opened->mSelectedRow);
+        auto row = opened->mSelectedRow;
         if(row->get_item() == nullptr) return;
 
         NodeAccessor node;
@@ -455,7 +488,7 @@ void MainWindow::Import(Glib::RefPtr<Gio::AsyncResult>& result){
     if(mNotebook->get_nth_page(mNotebook->get_current_page()) != nullptr){
         OpenedItem* opened = dynamic_cast<OpenedItem*>(mNotebook->get_nth_page(mNotebook->get_current_page()));
 
-        auto row = opened->mTreeListModel->get_row(opened->mSelectedRow);
+        auto row = opened->mSelectedRow;
 
         NodeAccessor node;
         if(opened->mIsArchive){
@@ -464,7 +497,7 @@ void MainWindow::Import(Glib::RefPtr<Gio::AsyncResult>& result){
             node.mDisk = std::dynamic_pointer_cast<FSNode<Disk::Folder, Disk::File>>(row->get_item());
         }
 
-        if(node.IsFolder()){
+        if(!node.IsFolder()){
             if(opened->mIsArchive){
                 node.mArc = std::dynamic_pointer_cast<FSNode<Archive::Folder, Archive::File>>(row->get_parent()->get_item());
             } else {
@@ -489,7 +522,7 @@ void MainWindow::OnImport(){
     if(mNotebook->get_nth_page(mNotebook->get_current_page()) != nullptr){
         OpenedItem* opened = dynamic_cast<OpenedItem*>(mNotebook->get_nth_page(mNotebook->get_current_page()));
 
-        auto row = opened->mTreeListModel->get_row(opened->mSelectedRow);
+        auto row = opened->mSelectedRow;
         if(row->get_item() == nullptr) return;
 
         if(!mFileDialog){
@@ -505,7 +538,7 @@ void MainWindow::OnDelete(){
     if(mNotebook->get_nth_page(mNotebook->get_current_page()) != nullptr){
         OpenedItem* opened = dynamic_cast<OpenedItem*>(mNotebook->get_nth_page(mNotebook->get_current_page()));
 
-        auto row = opened->mTreeListModel->get_row(opened->mSelectedRow);
+        auto row = opened->mSelectedRow;
         if(row->get_item() == nullptr) return;
 
         auto parent_row = row->get_parent();
@@ -537,7 +570,7 @@ void MainWindow::Extract(Glib::RefPtr<Gio::AsyncResult>& result){
     if(mNotebook->get_nth_page(mNotebook->get_current_page()) != nullptr){
         OpenedItem* opened = dynamic_cast<OpenedItem*>(mNotebook->get_nth_page(mNotebook->get_current_page()));
 
-        auto row = opened->mTreeListModel->get_row(opened->mSelectedRow);
+        auto row = opened->mSelectedRow;
 
         NodeAccessor node;
         if(opened->mIsArchive){
@@ -577,7 +610,7 @@ void MainWindow::OnExtract(){
     if(mNotebook->get_nth_page(mNotebook->get_current_page()) != nullptr){
         OpenedItem* opened = dynamic_cast<OpenedItem*>(mNotebook->get_nth_page(mNotebook->get_current_page()));
 
-        auto row = opened->mTreeListModel->get_row(opened->mSelectedRow);
+        auto row = opened->mSelectedRow;
         if(row->get_item() == nullptr) return;
 
         if(!mFileDialog){
@@ -605,7 +638,7 @@ void MainWindow::OnNewFolder(){
     if(mNotebook->get_nth_page(mNotebook->get_current_page()) != nullptr){
         OpenedItem* opened = dynamic_cast<OpenedItem*>(mNotebook->get_nth_page(mNotebook->get_current_page()));
 
-        auto row = opened->mTreeListModel->get_row(opened->mSelectedRow);
+        auto row = opened->mSelectedRow;
         if(row->get_item() == nullptr) return;
         
         NodeAccessor node;
@@ -667,7 +700,7 @@ MainWindow::MainWindow(BaseObjectType* cobject, const Glib::RefPtr<Gtk::Builder>
         if(mNotebook->get_nth_page(mNotebook->get_current_page()) != nullptr){
             OpenedItem* opened = dynamic_cast<OpenedItem*>(mNotebook->get_nth_page(mNotebook->get_current_page()));
 
-            auto row = opened->mTreeListModel->get_row(opened->mSelectedRow);
+            auto row = opened->mSelectedRow;
             if(row->get_item() == nullptr) return;
 
             NodeAccessor node;

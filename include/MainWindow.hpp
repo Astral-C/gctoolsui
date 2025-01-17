@@ -7,6 +7,7 @@
 #include <cmath>
 #include "bytesize.hpp"
 
+// This is kind of dumb but it makes things more readalbe in the main UI code so, keeping it
 template<typename T>
 concept Folder = requires(T t){
     { t.GetName() } -> std::same_as<std::string>;
@@ -156,14 +157,14 @@ struct NodeAccessor {
     void SetName(std::string s) {
         if(mArc != nullptr){
             mArc->mEntryName = s;
-            if(!mArc->mIsFolder){
+            if(mArc->mIsFolder){
                 mArc->mFolderEntry->SetName(s);
             } else {
                 mArc->mFileEntry->SetName(s);
             }
         } else {
             mDisk->mEntryName = s;
-            if(!mDisk->mIsFolder){
+            if(mDisk->mIsFolder){
                 mDisk->mFolderEntry->SetName(s);
             } else {
                 mDisk->mFileEntry->SetName(s);
@@ -215,7 +216,8 @@ public:
     std::shared_ptr<Disk::Image> mDisk { nullptr };
     std::shared_ptr<Archive::Rarc> mArchive { nullptr };
 
-    guint mSelectedRow;
+    Gtk::PopoverMenu* mContextMenu;
+    Glib::RefPtr<Gtk::TreeListRow> mSelectedRow;
     Glib::RefPtr<Gtk::TreeStore> mTreeStore;
     Glib::RefPtr<Gtk::SingleSelection> mSelection;
     Glib::RefPtr<Gtk::TreeListModel> mTreeListModel;
