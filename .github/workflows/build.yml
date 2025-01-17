@@ -72,12 +72,12 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           mkdir gctools-build
-          cp build/gctools gctools-build/gctools
+          cp build/gctoolsui gctools-build/gctoolsui
       - name: Create App Package Windows
         if: runner.os == 'Windows'
         run: |
           mkdir gctools-build
-          cp build/gctools.exe gctools-build/gctools.exe
+          cp build/gctoolsui.exe gctools-build/gctoolsui.exe
       - name: Upload App Windows
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v3
