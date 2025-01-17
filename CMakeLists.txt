@@ -4,6 +4,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(PkgConfig)
+pkg_check_modules(GTK4 REQUIRED gtk4)
 pkg_check_modules(GTKMM gtkmm-4.0)
 
 link_directories(${GTKMM_LIBRARY_DIRS})
