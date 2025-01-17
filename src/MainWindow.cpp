@@ -2,6 +2,8 @@
 #include <iostream>
 #include <Bti.hpp>
 
+#include <gtkmm/popovermenu.h>
+
 void ExtractDir(std::shared_ptr<Archive::Folder> dir){
     std::filesystem::create_directory(dir->GetName());
     
