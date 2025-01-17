@@ -3,6 +3,11 @@ project(gctoolsui)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+if(WIN32)
+    set(CMAKE_CXX_COMPILER "C:/MinGW/bin/g++")
+    set(CMAKE_C_COMPILER "C:/MinGW/bin/gcc")
+endif()
+
 find_package(PkgConfig)
 pkg_check_modules(GTK4 REQUIRED gtk4)
 pkg_check_modules(GTKMM gtkmm-4.0)
