@@ -290,10 +290,12 @@ OpenedItem::OpenedItem(Gtk::ColumnView* view, std::shared_ptr<Disk::Image> img){
 }
 
 void OpenedItem::Save(){
-    if(mArchive){
-        mArchive->SaveToFile(mOpenedPath, mCompressionFmt, 7, true);
-    } else if(mDisk){
-        mDisk->SaveToFile(mOpenedPath);
+    if(mOpenedPath != ""){
+        if(mArchive){
+            mArchive->SaveToFile(mOpenedPath, mCompressionFmt, 7, true);
+        } else if(mDisk){
+            mDisk->SaveToFile(mOpenedPath);
+        }
     }
 }
 
@@ -340,6 +342,7 @@ void MainWindow::OnNew(){
     scroller->set_has_frame(false);
     scroller->set_policy(Gtk::PolicyType::AUTOMATIC, Gtk::PolicyType::AUTOMATIC);
     scroller->set_expand();
+    scroller->mContextMenu = &mContextMenu;
 
     auto tab = Gtk::make_managed<ItemTab>("archive", mNotebook, scroller);
     mNotebook->append_page(*scroller, *tab);
@@ -431,12 +434,87 @@ void MainWindow::OnOpen(){
 }
 
 void MainWindow::OnSave(){
+    mStatus->pop();
+    mStatus->push("Saving");
     int page = mNotebook->get_current_page();
-    dynamic_cast<OpenedItem*>(mNotebook->get_nth_page(page))->Save();
+    if(mNotebook->get_nth_page(page) != nullptr){
+        OpenedItem* item = dynamic_cast<OpenedItem*>(mNotebook->get_nth_page(page));
+        if(item->mOpenedPath == ""){
+            if(!mFileDialog){
+                mFileDialog = Gtk::FileDialog::create();
+                mFileDialog->set_modal(true);
+            }
+            
+            mFileDialog->set_initial_name(item->mArchive->GetRoot()->GetName() + ".arc");
+            mFileDialog->save(*this, [this, page, item](Glib::RefPtr<Gio::AsyncResult>& result){
+                Glib::RefPtr<Gio::File> file;
+                try {
+                    file = mFileDialog->save_finish(result);
+                } catch(const Gtk::DialogError& err) {
+                    return;
+                }
+
+                item->mOpenedPath = file->get_path();
+                if(std::filesystem::path(file->get_path()).extension() == ".szp"){
+                    std::cout << "format is yay0" << std::endl;
+                    item->mCompressionFmt = Compression::Format::YAY0;    
+                } else if(std::filesystem::path(file->get_path()).extension() == ".szs"){
+                    item->mCompressionFmt = Compression::Format::YAZ0;
+                    std::cout << "format is yaz0" << std::endl;
+                }
+
+                dynamic_cast<Gtk::Label*>(mNotebook->get_tab_label(*mNotebook->get_nth_page(page))->get_first_child())->set_text(file->get_basename());
+
+                item->Save();
+                mStatus->pop();
+                mStatus->push(std::format("Saved {} ", file->get_path()));
+            });
+        } else {
+            item->Save();
+            mStatus->pop();
+            mStatus->push(std::format("Saved {} ", item->mOpenedPath.string()));
+        }
+    }
 }
 
 void MainWindow::OnSaveAs(){
+    int page = mNotebook->get_current_page();
+    if(mNotebook->get_nth_page(page) != nullptr){
+        OpenedItem* item = dynamic_cast<OpenedItem*>(mNotebook->get_nth_page(page));
+        if(!mFileDialog){
+            mFileDialog = Gtk::FileDialog::create();
+            mFileDialog->set_modal(true);
+        }
+        
+        mFileDialog->set_initial_name(item->mArchive->GetRoot()->GetName());
+        mFileDialog->save(*this, [this, page, item](Glib::RefPtr<Gio::AsyncResult>& result){
+            Glib::RefPtr<Gio::File> file;
+            try {
+                file = mFileDialog->save_finish(result);
+            } catch(const Gtk::DialogError& err) {
+                return;
+            }
 
+            mStatus->pop();
+            mStatus->push(std::format("Saving {} ", file->get_path()));
+
+            item->mOpenedPath = file->get_path();
+
+            if(std::filesystem::path(file->get_path()).extension() == ".szp"){
+                std::cout << "format is yay0" << std::endl;
+                item->mCompressionFmt = Compression::Format::YAY0;    
+            } else if(std::filesystem::path(file->get_path()).extension() == ".szs"){
+                item->mCompressionFmt = Compression::Format::YAZ0;
+                std::cout << "format is yaz0" << std::endl;
+            }
+
+            dynamic_cast<Gtk::Label*>(mNotebook->get_tab_label(*mNotebook->get_nth_page(page))->get_first_child())->set_text(file->get_basename());
+
+            item->Save();
+            mStatus->pop();
+            mStatus->push(std::format("Saved {} ", file->get_path()));
+        });
+    }
 }
 
 void MainWindow::OnRename(){
@@ -545,14 +623,15 @@ void MainWindow::OnDelete(){
         if(row->get_item() == nullptr) return;
 
         auto parent_row = row->get_parent();
-        if(parent_row->get_item() == nullptr) return;
+        if(parent_row == nullptr || parent_row->get_item() == nullptr) return;
+
 
         NodeAccessor node;
         NodeAccessor parent_node;
         if(opened->mIsArchive){
             parent_node.mArc = std::dynamic_pointer_cast<FSNode<Archive::Folder, Archive::File>>(parent_row->get_item());
             node.mArc = std::dynamic_pointer_cast<FSNode<Archive::Folder, Archive::File>>(row->get_item());
-        } else {
+        } else {      
             parent_node.mDisk = std::dynamic_pointer_cast<FSNode<Disk::Folder, Disk::File>>(parent_row->get_item());
             node.mDisk = std::dynamic_pointer_cast<FSNode<Disk::Folder, Disk::File>>(row->get_item());
         }
@@ -600,9 +679,9 @@ void MainWindow::Extract(Glib::RefPtr<Gio::AsyncResult>& result){
             auto cur = std::filesystem::current_path();
             std::filesystem::current_path(std::filesystem::path(file->get_path()));
             if(node.mArc != nullptr){
-                ExtractDir(node.mDisk->mFolderEntry);
-            } else {
                 ExtractDir(node.mArc->mFolderEntry);
+            } else {
+                ExtractDir(node.mDisk->mFolderEntry);
             }
             std::filesystem::current_path(cur);
         }

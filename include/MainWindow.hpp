@@ -222,7 +222,7 @@ public:
     Glib::RefPtr<Gtk::SingleSelection> mSelection;
     Glib::RefPtr<Gtk::TreeListModel> mTreeListModel;
 
-    Compression::Format mCompressionFmt;
+    Compression::Format mCompressionFmt { Compression::Format::None };
 
     void OnCreateItem(const Glib::RefPtr<Gtk::ListItem>& list_item);
     void OnCreateNoExpander(const Glib::RefPtr<Gtk::ListItem>& list_item);
