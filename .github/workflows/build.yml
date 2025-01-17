@@ -59,6 +59,7 @@ jobs:
       - name: Integrate vcpkg
         if: runner.os == 'Windows'
         run: |
+          vcpkg install gtkmm
           vcpkg integrate install
       - name: Run CMake
         uses: lukka/run-cmake@v3.3
@@ -67,17 +68,20 @@ jobs:
           cmakeListsTxtPath: '${{ github.workspace }}/CMakeLists.txt'
           buildDirectory: '${{ github.workspace }}/build'
           useVcpkgToolchainFile: true
-          cmakeAppendedArgs: '-G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER="C:/MinGW/bin/gcc.exe" -DCMAKE_CXX_COMPILER="C:/MinGW/bin/g++.exe"'
+          cmakeAppendedArgs: '-G Ninja'
       - name: Create App Package Linux
         if: runner.os == 'Linux'
         run: |
           mkdir gctools-build
           cp build/gctoolsui gctools-build/gctoolsui
+          cp build/*.ui gctools-build
       - name: Create App Package Windows
         if: runner.os == 'Windows'
         run: |
           mkdir gctools-build
           cp build/gctoolsui.exe gctools-build/gctoolsui.exe
+          cp build/*.dll gctools-build
+          cp build/*.ui gctools-build
       - name: Upload App Windows
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v3

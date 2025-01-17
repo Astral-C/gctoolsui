@@ -1,7 +1,5 @@
 {
     "name" : "gctoolscmd",
     "version-string" : "gctoolscmd-win",
-    "dependencies": [
-        "gtkmm"
-    ]
+    "dependencies": []
 }
