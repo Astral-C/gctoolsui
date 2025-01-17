@@ -693,7 +693,6 @@ MainWindow::MainWindow(BaseObjectType* cobject, const Glib::RefPtr<Gtk::Builder>
     mTreeContextMenuModel = builder->get_object<Gio::Menu>("ctxMenuModel");
     mContextMenu.set_parent(*this);
     mContextMenu.set_menu_model(mTreeContextMenuModel);
-    mContextMenu.set_flags(Gtk::PopoverMenu::Flags::NESTED);
     mContextMenu.set_has_arrow(false);
 
     mRenameDialog = Gtk::Builder::get_widget_derived<RenameDialog>(builder, "renameDialog");
