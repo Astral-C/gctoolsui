@@ -54,8 +54,8 @@ jobs:
         uses: lukka/run-vcpkg@v11.5
         with:
           vcpkgGitCommitId: 'a9eee3b18df395dbb8be71a31bd78ea441056e42'
-          vcpkgDirectory: '${{ github.workspace }}/vcpkg'
-          vcpkgJsonGlob: '**/vcpkg.json'
+          vcpkgDirectory: '/vcpkg'
+          vcpkgJsonGlob: '${{ github.workspace }}/vcpkg.json'
       - name: Integrate vcpkg
         if: runner.os == 'Windows'
         run: |
