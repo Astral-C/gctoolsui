@@ -156,7 +156,7 @@ void OpenedItem::OnBindName(const Glib::RefPtr<Gtk::ListItem>& list_item){
     if(node.IsFolder()){
         image->set_from_icon_name("folder");
     } else {
-        if(std::filesystem::path(node.GetName()).extension() == ".bti"){
+        if(std::filesystem::path(Glib::locale_from_utf8(node.GetName())).extension() == ".bti"){
             Bti img;
             bStream::CMemoryStream stream(node.GetData(), node.GetSize(), bStream::Endianess::Big, bStream::OpenMode::In);
             
@@ -166,7 +166,7 @@ void OpenedItem::OnBindName(const Glib::RefPtr<Gtk::ListItem>& list_item){
                 image->set_pixel_size(32);
                 image->set(pixbuf->scale_simple(static_cast<int>(img.mWidth * ratio), static_cast<int>(img.mHeight * ratio), Gdk::InterpType::NEAREST));
             }
-        } else if(std::filesystem::path(node.GetName()).extension() == ".tpl"){
+        } else if(std::filesystem::path(Glib::locale_from_utf8(node.GetName())).extension() == ".tpl"){
             Tpl img;
             bStream::CMemoryStream stream(node.GetData(), node.GetSize(), bStream::Endianess::Big, bStream::OpenMode::In);
             
@@ -379,7 +379,7 @@ void MainWindow::OpenArchive(Glib::RefPtr<Gio::AsyncResult>& result){
             scroller->set_policy(Gtk::PolicyType::AUTOMATIC, Gtk::PolicyType::AUTOMATIC);
             scroller->set_expand();    
             
-            scroller->mOpenedPath = file->get_path();
+            scroller->mOpenedPath = std::filesystem::path(file->get_path());
             scroller->mContextMenu = &mContextMenu;
 
             uint32_t magic = stream.peekUInt32(0);
@@ -412,7 +412,7 @@ void MainWindow::OpenArchive(Glib::RefPtr<Gio::AsyncResult>& result){
             scroller->set_policy(Gtk::PolicyType::AUTOMATIC, Gtk::PolicyType::AUTOMATIC);
             scroller->set_expand();
 
-            scroller->mOpenedPath = file->get_path();
+            scroller->mOpenedPath = std::filesystem::path(file->get_path());
             scroller->mContextMenu = &mContextMenu;
 
             auto tab = Gtk::make_managed<ItemTab>(file->get_basename(), mNotebook, scroller);
@@ -454,11 +454,11 @@ void MainWindow::OnSave(){
                     return;
                 }
 
-                item->mOpenedPath = file->get_path();
-                if(std::filesystem::path(file->get_path()).extension() == ".szp"){
+                item->mOpenedPath = std::filesystem::path(file->get_path());
+                if(item->mOpenedPath.extension() == ".szp"){
                     std::cout << "format is yay0" << std::endl;
                     item->mCompressionFmt = Compression::Format::YAY0;    
-                } else if(std::filesystem::path(file->get_path()).extension() == ".szs"){
+                } else if(item->mOpenedPath.extension() == ".szs"){
                     item->mCompressionFmt = Compression::Format::YAZ0;
                     std::cout << "format is yaz0" << std::endl;
                 }
@@ -498,12 +498,13 @@ void MainWindow::OnSaveAs(){
             mStatus->pop();
             mStatus->push(std::format("Saving {} ", file->get_path()));
 
-            item->mOpenedPath = file->get_path();
+            item->mOpenedPath = std::filesystem::path(file->get_path());
 
-            if(std::filesystem::path(file->get_path()).extension() == ".szp"){
+            std::filesystem::path out(file->get_path());
+            if(out.extension() == ".szp"){
                 std::cout << "format is yay0" << std::endl;
                 item->mCompressionFmt = Compression::Format::YAY0;    
-            } else if(std::filesystem::path(file->get_path()).extension() == ".szs"){
+            } else if(out.extension() == ".szs"){
                 item->mCompressionFmt = Compression::Format::YAZ0;
                 std::cout << "format is yaz0" << std::endl;
             }
