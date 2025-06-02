@@ -6,7 +6,7 @@
 
 void ExtractDir(std::shared_ptr<Archive::Folder> dir){
     std::filesystem::create_directory(dir->GetName());
-    
+
     auto cur = std::filesystem::current_path();
     std::filesystem::current_path(dir->GetName());
     for(auto folder : dir->GetSubdirectories()){
@@ -22,7 +22,7 @@ void ExtractDir(std::shared_ptr<Archive::Folder> dir){
 
 void ExtractDir(std::shared_ptr<Disk::Folder> dir){
     std::filesystem::create_directory(dir->GetName());
-    
+
     auto cur = std::filesystem::current_path();
     std::filesystem::current_path(dir->GetName());
     for(auto folder : dir->GetSubdirectories()){
@@ -42,7 +42,7 @@ Glib::RefPtr<Gio::ListModel> OpenedItem::CreateArchiveTreeModel(const Glib::RefP
         return {};
 
     auto result = Gio::ListStore<FSNode<Archive::Folder, Archive::File>>::create();
-    
+
     if(col){
         for(auto folder : col->mFolderEntry->GetSubdirectories()){
             result->append(FSNode<Archive::Folder, Archive::File>::create(folder));
@@ -54,7 +54,7 @@ Glib::RefPtr<Gio::ListModel> OpenedItem::CreateArchiveTreeModel(const Glib::RefP
     } else {
         result->append(FSNode<Archive::Folder, Archive::File>::create(mArchive->GetRoot()));
     }
-    
+
     return result;
 }
 
@@ -64,7 +64,7 @@ Glib::RefPtr<Gio::ListModel> OpenedItem::CreateDiskTreeModel(const Glib::RefPtr<
         return {};
 
     auto result = Gio::ListStore<FSNode<Disk::Folder, Disk::File>>::create();
-    
+
     if(col){
         for(auto folder : col->mFolderEntry->GetSubdirectories()){
             result->append(FSNode<Disk::Folder, Disk::File>::create(folder));
@@ -76,7 +76,7 @@ Glib::RefPtr<Gio::ListModel> OpenedItem::CreateDiskTreeModel(const Glib::RefPtr<
     } else {
         result->append(FSNode<Disk::Folder, Disk::File>::create(mDisk->GetRoot()));
     }
-  
+
   return result;
 }
 
@@ -128,11 +128,11 @@ void OpenedItem::OnBindName(const Glib::RefPtr<Gtk::ListItem>& list_item){
     if (!expander) return;
 
     expander->set_list_row(row);
-        
+
     auto box = dynamic_cast<Gtk::Box*>(expander->get_child());
     if(!box) return;
 
-    // attach right clicked gesture 
+    // attach right clicked gesture
     auto rowclick = Gtk::GestureClick::create();
     rowclick->set_button(GDK_BUTTON_SECONDARY);
     rowclick->signal_released().connect([this, expander, row](int n_press, double x, double y){
@@ -140,10 +140,10 @@ void OpenedItem::OnBindName(const Glib::RefPtr<Gtk::ListItem>& list_item){
         Glib::RefPtr<Gdk::Display> display = Gdk::Display::get_default();
         Glib::RefPtr<Gdk::Seat> seat = display->get_default_seat();
         Glib::RefPtr<Gdk::Device> pointer = seat->get_pointer();
-        
+
         double absx, absy;
         pointer->get_surface_at_position(absx, absy);
-    
+
         mContextMenu->set_pointing_to(Gdk::Rectangle {(int)absx, (int)absy, 0, 0});
         mContextMenu->popup();
     });
@@ -159,7 +159,7 @@ void OpenedItem::OnBindName(const Glib::RefPtr<Gtk::ListItem>& list_item){
         if(std::filesystem::path(Glib::locale_from_utf8(node.GetName())).extension() == ".bti"){
             Bti img;
             bStream::CMemoryStream stream(node.GetData(), node.GetSize(), bStream::Endianess::Big, bStream::OpenMode::In);
-            
+
             if(img.Load(&stream)){
                 auto pixbuf = Gdk::Pixbuf::create_from_data(img.GetData(), Gdk::Colorspace::RGB, true, 8, img.mWidth, img.mHeight, img.mWidth*4);
                 float ratio = std::min(static_cast<float>(32) / static_cast<float>(img.mWidth), static_cast<float>(32) / static_cast<float>(img.mHeight));
@@ -169,7 +169,7 @@ void OpenedItem::OnBindName(const Glib::RefPtr<Gtk::ListItem>& list_item){
         } else if(std::filesystem::path(Glib::locale_from_utf8(node.GetName())).extension() == ".tpl"){
             Tpl img;
             bStream::CMemoryStream stream(node.GetData(), node.GetSize(), bStream::Endianess::Big, bStream::OpenMode::In);
-            
+
             if(img.Load(&stream)){
                 auto pixbuf = Gdk::Pixbuf::create_from_data(img.GetImage(0)->GetData(), Gdk::Colorspace::RGB, true, 8, img.GetImage(0)->mWidth, img.GetImage(0)->mHeight, img.GetImage(0)->mWidth*4);
                 float ratio = std::min(static_cast<float>(32) / static_cast<float>(img.GetImage(0)->mWidth), static_cast<float>(32) / static_cast<float>(img.GetImage(0)->mHeight));
@@ -197,7 +197,7 @@ void OpenedItem::OnBindSize(const Glib::RefPtr<Gtk::ListItem>& list_item){
         node.mDisk = std::dynamic_pointer_cast<FSNode<Disk::Folder, Disk::File>>(row->get_item());
         if (!node.mDisk) return;
     }
-    
+
     auto label = dynamic_cast<Gtk::Label*>(list_item->get_child());
     if (!label) return;
     label->set_text(node.GetSizeStr());
@@ -209,10 +209,10 @@ void OpenedItem::OnBindSize(const Glib::RefPtr<Gtk::ListItem>& list_item){
         Glib::RefPtr<Gdk::Display> display = Gdk::Display::get_default();
         Glib::RefPtr<Gdk::Seat> seat = display->get_default_seat();
         Glib::RefPtr<Gdk::Device> pointer = seat->get_pointer();
-        
+
         double absx, absy;
         pointer->get_surface_at_position(absx, absy);
-    
+
         mContextMenu->set_pointing_to(Gdk::Rectangle {(int)absx, (int)absy, 0, 0});
         mContextMenu->popup();
     });
@@ -337,7 +337,7 @@ void MainWindow::OnNew(){
     Gtk::ColumnView* columnView = Gtk::make_managed<Gtk::ColumnView>();
     columnView->signal_activate().connect(sigc::mem_fun(*this, &MainWindow::ActivatedItem));
     columnView->set_expand();
-    
+
     OpenedItem* scroller = Gtk::make_managed<OpenedItem>(columnView, arc);
     scroller->set_has_frame(false);
     scroller->set_policy(Gtk::PolicyType::AUTOMATIC, Gtk::PolicyType::AUTOMATIC);
@@ -359,9 +359,9 @@ void MainWindow::OpenArchive(Glib::RefPtr<Gio::AsyncResult>& result){
     }
 
     //check extension to see if we should be opening an iso?
-    std::string extension = std::filesystem::path(file->get_path()).extension();
+    std::string extension = std::filesystem::path(file->get_path()).extension().string();
     bStream::CFileStream stream(file->get_path(), bStream::Endianess::Big, bStream::OpenMode::In);
-    
+
     if(extension == ".arc" || extension == ".rarc" || extension == ".szp" || extension == ".szs"){
         std::shared_ptr arc = Archive::Rarc::Create();
         if(!arc->Load(&stream)){
@@ -377,8 +377,8 @@ void MainWindow::OpenArchive(Glib::RefPtr<Gio::AsyncResult>& result){
             OpenedItem* scroller = Gtk::make_managed<OpenedItem>(columnView, arc);
             scroller->set_has_frame(false);
             scroller->set_policy(Gtk::PolicyType::AUTOMATIC, Gtk::PolicyType::AUTOMATIC);
-            scroller->set_expand();    
-            
+            scroller->set_expand();
+
             scroller->mOpenedPath = std::filesystem::path(file->get_path());
             scroller->mContextMenu = &mContextMenu;
 
@@ -444,7 +444,7 @@ void MainWindow::OnSave(){
                 mFileDialog = Gtk::FileDialog::create();
                 mFileDialog->set_modal(true);
             }
-            
+
             mFileDialog->set_initial_name(item->mArchive->GetRoot()->GetName() + ".arc");
             mFileDialog->save(*this, [this, page, item](Glib::RefPtr<Gio::AsyncResult>& result){
                 Glib::RefPtr<Gio::File> file;
@@ -457,7 +457,7 @@ void MainWindow::OnSave(){
                 item->mOpenedPath = std::filesystem::path(file->get_path());
                 if(item->mOpenedPath.extension() == ".szp"){
                     std::cout << "format is yay0" << std::endl;
-                    item->mCompressionFmt = Compression::Format::YAY0;    
+                    item->mCompressionFmt = Compression::Format::YAY0;
                 } else if(item->mOpenedPath.extension() == ".szs"){
                     item->mCompressionFmt = Compression::Format::YAZ0;
                     std::cout << "format is yaz0" << std::endl;
@@ -485,7 +485,7 @@ void MainWindow::OnSaveAs(){
             mFileDialog = Gtk::FileDialog::create();
             mFileDialog->set_modal(true);
         }
-        
+
         mFileDialog->set_initial_name(item->mArchive->GetRoot()->GetName());
         mFileDialog->save(*this, [this, page, item](Glib::RefPtr<Gio::AsyncResult>& result){
             Glib::RefPtr<Gio::File> file;
@@ -503,7 +503,7 @@ void MainWindow::OnSaveAs(){
             std::filesystem::path out(file->get_path());
             if(out.extension() == ".szp"){
                 std::cout << "format is yay0" << std::endl;
-                item->mCompressionFmt = Compression::Format::YAY0;    
+                item->mCompressionFmt = Compression::Format::YAY0;
             } else if(out.extension() == ".szs"){
                 item->mCompressionFmt = Compression::Format::YAZ0;
                 std::cout << "format is yaz0" << std::endl;
@@ -535,7 +535,7 @@ void MainWindow::OnRename(){
         std::string name = node.GetName();
 
         mBuilder->get_widget<Gtk::Text>("nameBox")->get_buffer()->set_text(name);
-        
+
         mRenameDialog->set_transient_for(*this);
         mRenameDialog->set_modal(true);
         mRenameDialog->set_visible(true);
@@ -560,7 +560,7 @@ void MainWindow::Import(Glib::RefPtr<Gio::AsyncResult>& result){
     } catch(const Gtk::DialogError& err) {
         return;
     }
-    
+
     bStream::CFileStream stream(file->get_path(), bStream::Endianess::Big, bStream::OpenMode::In);
     std::size_t size = stream.getSize();
 
@@ -585,13 +585,13 @@ void MainWindow::Import(Glib::RefPtr<Gio::AsyncResult>& result){
             } else {
                 node.mDisk = std::dynamic_pointer_cast<FSNode<Disk::Folder, Disk::File>>(row->get_parent()->get_item());
             }
-        } 
-        
+        }
+
         node.AddFile(file->get_basename(), data, size);
-        
+
         if(row->get_expanded()){
             row->set_expanded(false);
-            row->set_expanded(true);    
+            row->set_expanded(true);
         }
         row->set_expanded(true);
 
@@ -611,7 +611,7 @@ void MainWindow::OnImport(){
             mFileDialog = Gtk::FileDialog::create();
             mFileDialog->set_modal(true);
         }
-        
+
         mFileDialog->open(*this, sigc::mem_fun(*this, &MainWindow::Import));
     }
 }
@@ -632,7 +632,7 @@ void MainWindow::OnDelete(){
         if(opened->mIsArchive){
             parent_node.mArc = std::dynamic_pointer_cast<FSNode<Archive::Folder, Archive::File>>(parent_row->get_item());
             node.mArc = std::dynamic_pointer_cast<FSNode<Archive::Folder, Archive::File>>(row->get_item());
-        } else {      
+        } else {
             parent_node.mDisk = std::dynamic_pointer_cast<FSNode<Disk::Folder, Disk::File>>(parent_row->get_item());
             node.mDisk = std::dynamic_pointer_cast<FSNode<Disk::Folder, Disk::File>>(row->get_item());
         }
@@ -642,7 +642,7 @@ void MainWindow::OnDelete(){
         auto parent = row->get_parent();
         if(parent != nullptr){
             parent->set_expanded(false);
-            parent->set_expanded(true);    
+            parent->set_expanded(true);
         }
     }
 }
@@ -662,7 +662,7 @@ void MainWindow::Extract(Glib::RefPtr<Gio::AsyncResult>& result){
             node.mDisk = std::dynamic_pointer_cast<FSNode<Disk::Folder, Disk::File>>(row->get_item());
         }
 
-        if(!node.IsFolder()){                
+        if(!node.IsFolder()){
             try {
                 file = mFileDialog->save_finish(result);
             } catch(const Gtk::DialogError& err) {
@@ -700,14 +700,14 @@ void MainWindow::OnExtract(){
             mFileDialog = Gtk::FileDialog::create();
             mFileDialog->set_modal(true);
         }
-        
+
         NodeAccessor node;
         if(opened->mIsArchive){
             node.mArc = std::dynamic_pointer_cast<FSNode<Archive::Folder, Archive::File>>(row->get_item());
         } else {
             node.mDisk = std::dynamic_pointer_cast<FSNode<Disk::Folder, Disk::File>>(row->get_item());
         }
-        
+
         if(!node.IsFolder()){
             mFileDialog->set_initial_name(node.GetName());
             mFileDialog->save(*this, sigc::mem_fun(*this, &MainWindow::Extract));
@@ -723,7 +723,7 @@ void MainWindow::OnNewFolder(){
 
         auto row = opened->mSelectedRow;
         if(row->get_item() == nullptr) return;
-        
+
         NodeAccessor node;
         if(opened->mIsArchive){
             node.mArc = std::dynamic_pointer_cast<FSNode<Archive::Folder, Archive::File>>(row->get_item());
@@ -737,7 +737,7 @@ void MainWindow::OnNewFolder(){
 
         if(row->get_expanded()){
             row->set_expanded(false);
-            row->set_expanded(true);    
+            row->set_expanded(true);
         }
         row->set_expanded(true);
     }
@@ -746,7 +746,7 @@ void MainWindow::OnNewFolder(){
 
 MainWindow::MainWindow(BaseObjectType* cobject, const Glib::RefPtr<Gtk::Builder>& builder) : Gtk::ApplicationWindow(cobject), mBuilder(builder){
     auto menuActions = Gio::SimpleActionGroup::create();
-    
+
     menuActions->add_action("new", sigc::mem_fun(*this, &MainWindow::OnNew));
     menuActions->add_action("open", sigc::mem_fun(*this, &MainWindow::OnOpen));
     menuActions->add_action("save", sigc::mem_fun(*this, &MainWindow::OnSave));
@@ -758,7 +758,7 @@ MainWindow::MainWindow(BaseObjectType* cobject, const Glib::RefPtr<Gtk::Builder>
     insert_action_group("menuactions", menuActions);
 
     auto contextMenuAction = Gio::SimpleActionGroup::create();
-    
+
     contextMenuAction->add_action("rename", sigc::mem_fun(*this, &MainWindow::OnRename));
     contextMenuAction->add_action("import", sigc::mem_fun(*this, &MainWindow::OnImport));
     contextMenuAction->add_action("extract", sigc::mem_fun(*this, &MainWindow::OnExtract));
@@ -791,16 +791,16 @@ MainWindow::MainWindow(BaseObjectType* cobject, const Glib::RefPtr<Gtk::Builder>
             } else {
                 node.mDisk = std::dynamic_pointer_cast<FSNode<Disk::Folder, Disk::File>>(row->get_item());
             }
-            
+
             node.GetLabel()->set_text(newName);
-            node.SetName(newName);            
+            node.SetName(newName);
         }
 
         mRenameDialog->set_visible(false);
     });
 
     mSettingsDialog = BuildSettingsDialog();
-    
+
     mSettingsDialog->Builder()->get_widget<Gtk::Button>("applyButton")->signal_clicked().connect([&](){
         mSettingsDialog->set_visible(false);
     });
@@ -844,7 +844,7 @@ SettingsDialog* BuildSettingsDialog(){
         std::cout << "Could not get 'window' from the builder." << std::endl;
         return nullptr;
     }
-    
+
     return window;
 }
 
@@ -862,6 +862,6 @@ Gtk::ApplicationWindow* BuildWindow(){
         std::cout << "Could not get 'window' from the builder." << std::endl;
         return nullptr;
     }
-    
+
     return window;
 }
